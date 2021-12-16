@@ -5,3 +5,5 @@ build/
 src/CMakeLists.txt
 .catkin_workspace
 *.class
+
+.idea
