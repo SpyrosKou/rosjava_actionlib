@@ -5,5 +5,8 @@ build/
 src/CMakeLists.txt
 .catkin_workspace
 *.class
-
+/.nb-gradle/
+*.class
+out
+.svn
 .idea
