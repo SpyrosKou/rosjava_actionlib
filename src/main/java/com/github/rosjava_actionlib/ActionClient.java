@@ -79,7 +79,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *
      * @param connectedNode      The node object that is connected to the ROS master.
      * @param actionName         A string representing the name of this action. This name
-     *                           is used to publish the actinlib topics and should be agreed between server
+     *                           is used to publish the actionlib topics and should be agreed between server
      *                           and the client.
      * @param actionGoalType     A string with the type information for the action
      *                           goal message.
