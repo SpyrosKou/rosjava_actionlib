@@ -61,14 +61,16 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
 
     /**
-     * @param <T_ACTION_GOAL>
+     * Keeps the status of each goal
+     *
+     * @param <T_ACTION_GOAL_TYPE> the T_ACTION_GOAL type
      */
-    private static final class ServerGoal<T_ACTION_GOAL> {
-        final T_ACTION_GOAL goal;
-        final ServerStateMachine state = new ServerStateMachine();
+    private static final class ServerGoal<T_ACTION_GOAL_TYPE extends Message> {
+        private final T_ACTION_GOAL_TYPE goal;
+        private final ServerStateMachine stateMachine = new ServerStateMachine();
 
-        ServerGoal(final T_ACTION_GOAL actionGoal) {
-            goal = actionGoal;
+        private ServerGoal(final T_ACTION_GOAL_TYPE goal) {
+            this.goal = goal;
         }
     }
 
@@ -100,14 +102,26 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @param actionResultType   String holding the type for the action result
      *                           message.
      */
-    public ActionServer(final ConnectedNode node, final String actionName, final String actionGoalType, final String actionFeedbackType, final String actionResultType) {
-        this.node = node;
+    public ActionServer(final ConnectedNode connectedNode
+            , final ActionServerListener<T_ACTION_GOAL> actionServerListener
+            , final String actionName
+            , final String actionGoalType
+            , final String actionFeedbackType
+            , final String actionResultType) {
+        Objects.requireNonNull(connectedNode);
+        Objects.requireNonNull(actionServerListener);
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionName));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionGoalType));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionFeedbackType));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionResultType));
+        this.actionServerListener = actionServerListener;
+
         this.actionName = actionName;
         this.actionGoalType = actionGoalType;
         this.actionFeedbackType = actionFeedbackType;
         this.actionResultType = actionResultType;
-
-        connect(node);
+        this.messageFactory = connectedNode.getTopicMessageFactory();
+        this.connect(connectedNode);
     }
 
 
