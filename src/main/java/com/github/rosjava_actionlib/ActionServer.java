@@ -23,14 +23,15 @@ import actionlib_msgs.GoalStatusArray;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.ros.internal.message.Message;
 import org.ros.message.MessageFactory;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -43,7 +44,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK extends Message, T_ACTION_RESULT extends Message> {
 
-    private static final Log LOGGER = LogFactory.getLog(ActionServer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     //default status_frequency is 5Hz for python and cpp
     private static final long DEFAULT_STATUS_TICK_PERIOD_MILLIS = 200;

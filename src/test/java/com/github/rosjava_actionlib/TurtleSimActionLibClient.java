@@ -24,8 +24,11 @@ import org.ros.message.Duration;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import turtle_actionlib.*;
 
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Objects;
 
@@ -38,7 +41,7 @@ import java.util.Objects;
  * @author Spyros Koukas
  */
 final class TurtleSimActionLibClient extends AbstractNodeMain {
-    private static final Log logger = LogFactory.getLog(TurtleSimActionLibClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final String clientName;
     private static final String DEFAULT_NAME = "turtleSimDefaultClient";
 
@@ -99,46 +102,46 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
 
         // Attach listener for the callbacks
 
-        logger.trace("\nWaiting for action server to start...");
+        LOGGER.trace("\nWaiting for action server to start...");
         final boolean serverStarted = shapeActionClient.waitForActionServerToStart(new Duration(new Duration(serverStartTimeoutSecs)));
         if (serverStarted) {
-            logger.trace("Action server started.\n");
+            LOGGER.trace("Action server started.\n");
         } else {
-            logger.trace("No actionlib server found after waiting for " + serverStartTimeoutSecs + " seconds!");
+            LOGGER.trace("No actionlib server found after waiting for " + serverStartTimeoutSecs + " seconds!");
         }
 
         // Create Fibonacci goal message
         final ShapeActionGoal goalMessage = (ShapeActionGoal) shapeActionClient.newGoalMessage();
         goalMessage.setGoal(shapeGoal);
-        logger.trace("Sending goal...");
+        LOGGER.trace("Sending goal...");
         shapeActionClient.sendGoal(goalMessage);
         final GoalID gid1 = goalMessage.getGoalId();
-        logger.trace("Sent goal with ID: " + gid1.getId());
-        logger.trace("Waiting for goal to complete...");
+        LOGGER.trace("Sent goal with ID: " + gid1.getId());
+        LOGGER.trace("Waiting for goal to complete...");
         ClientState oldState = ClientState.NO_TRANSITION;
         ClientState newState = oldState;
         while ((newState = shapeActionClient.getGoalState()) != ClientState.DONE) {
             if (oldState != newState) {
-                logger.trace("State:" + oldState + " --> " + newState);
+                LOGGER.trace("State:" + oldState + " --> " + newState);
                 oldState = newState;
             }
             sleep(100);
         }
-        logger.trace("Goal completed!\n");
+        LOGGER.trace("Goal completed!\n");
 
 
     }
 
     @Override
     public void onStart(ConnectedNode node) {
-        logger.trace("Starting");
+        LOGGER.trace("Starting");
         this.shapeActionClient = new ActionClient<>(node, "/turtle_shape", ShapeActionGoal._TYPE, ShapeActionFeedback._TYPE, ShapeActionResult._TYPE);
         final ShapeHandler shapeHandler = new ShapeHandler();
         this.shapeActionClient.addListener(shapeHandler);
         log = node.getLog();
         //TODO synchronous start method implement.
         this.isStarted = true;
-        logger.trace("Started");
+        LOGGER.trace("Started");
 
     }
 
@@ -163,12 +166,12 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
          */
         @Override
         public void resultReceived(final ShapeActionResult shapeActionResult) {
-            logger.trace("shapeActionResult:" + shapeActionResult);
+            LOGGER.trace("shapeActionResult:" + shapeActionResult);
             final ShapeResult result = shapeActionResult.getResult();
 
             final float apothem = result.getApothem();
             final float interiorAngle = result.getInteriorAngle();
-            logger.trace("Result: {apothem:" + apothem + " interiorAngle:" + interiorAngle + " }");
+            LOGGER.trace("Result: {apothem:" + apothem + " interiorAngle:" + interiorAngle + " }");
         }
 
         /**
@@ -179,9 +182,9 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
          */
         @Override
         public void feedbackReceived(final ShapeActionFeedback shapeActionFeedback) {
-            logger.trace("shapeActionFeedback:" + shapeActionFeedback);
+            LOGGER.trace("shapeActionFeedback:" + shapeActionFeedback);
             final ShapeFeedback feedback = shapeActionFeedback.getFeedback();
-            logger.trace("feedback:" + feedback);
+            LOGGER.trace("feedback:" + feedback);
 
         }
 
@@ -194,14 +197,14 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
          */
         @Override
         public void statusReceived(final GoalStatusArray status) {
-            logger.trace("status:" + status);
+            LOGGER.trace("status:" + status);
             if (status != null) {
                 final List<GoalStatus> statusList = status.getStatusList();
                 if (statusList != null) {
-                    logger.trace("StatusList size:" + statusList.size());
+                    LOGGER.trace("StatusList size:" + statusList.size());
                 }
                 for (final GoalStatus gs : statusList) {
-                    logger.trace("GoalID: " + gs.getGoalId().getId() + " - GoalStatus: " + gs.getStatus() + "(" + +gs.getStatus() + ") -- " + gs.getText());
+                    LOGGER.trace("GoalID: " + gs.getGoalId().getId() + " - GoalStatus: " + gs.getStatus() + "(" + +gs.getStatus() + ") -- " + gs.getText());
                 }
 
             }

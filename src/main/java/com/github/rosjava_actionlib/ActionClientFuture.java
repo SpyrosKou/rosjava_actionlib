@@ -21,10 +21,11 @@ import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import com.google.common.base.Stopwatch;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.ros.internal.message.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +39,7 @@ import java.util.concurrent.TimeoutException;
 final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message>
         implements ActionFuture<T_GOAL, T_FEEDBACK, T_RESULT>,
         ActionClientListener<T_FEEDBACK, T_RESULT> {
-    private static final Log LOGGER = LogFactory.getLog(ActionClientFuture.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final GoalID goalid;
     private final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient;
     private final ClientGoalManager goalManager = new ClientGoalManager(new ActionGoal<T_GOAL>());

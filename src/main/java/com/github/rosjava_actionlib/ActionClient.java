@@ -23,8 +23,6 @@ import actionlib_msgs.GoalStatusArray;
 import com.google.common.base.Stopwatch;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.ros.internal.message.Message;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
@@ -32,7 +30,10 @@ import org.ros.message.Duration;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -53,7 +54,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         T_ACTION_FEEDBACK extends Message,
         T_ACTION_RESULT extends Message> {
 
-    private static final Log LOGGER = LogFactory.getLog(ActionClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final ClientGoalManager<T_ACTION_GOAL> goalManager;
     private final String actionGoalType;
     private final String actionResultType;

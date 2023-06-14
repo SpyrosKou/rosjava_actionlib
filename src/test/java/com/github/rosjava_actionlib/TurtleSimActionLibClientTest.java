@@ -21,8 +21,12 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import turtle_actionlib.ShapeActionGoal;
 import turtle_actionlib.ShapeGoal;
+
+import java.lang.invoke.MethodHandles;
 
 /**
  * Test to if {@link TurtleSimActionLibClient} can drive turtle sim action lib server
@@ -32,7 +36,7 @@ import turtle_actionlib.ShapeGoal;
  */
 @Ignore //uncomment to use this test is ignored
 public class TurtleSimActionLibClientTest {
-    private static Log logger = LogFactory.getLog(TurtleSimActionLibClientTest.class);
+private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final String ROS_HOST_IP = "127.0.0.1";
     private static final String ROS_MASTER_IP_PORT = "http://127.0.0.1:11311";
     private TurtleSimActionLibClient testClient = null;
@@ -51,7 +55,7 @@ public class TurtleSimActionLibClientTest {
 
 
         } catch (final Exception er3) {
-            logger.error(ExceptionUtils.getStackTrace(er3));
+            LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
         }
 
@@ -65,26 +69,26 @@ public class TurtleSimActionLibClientTest {
         try {
 
 
-            logger.trace("Starting Tasks");
+            LOGGER.trace("Starting Tasks");
             final ShapeGoal goal = testClient.createShapeGoal();
             goal.setEdges(4);
             goal.setRadius(1f);
             testClient.synchronousCompleteGoal(goal, 20.0f);
-            logger.trace("Falling asleep");
+            LOGGER.trace("Falling asleep");
 
             try {
                 Thread.sleep(10_000);
             } catch (final Exception er3) {
-                logger.error(ExceptionUtils.getStackTrace(er3));
+                LOGGER.error(ExceptionUtils.getStackTrace(er3));
 
             }
 
 
-            logger.trace("Stopping");
+            LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
             Assert.fail(ExceptionUtils.getStackTrace(e));
         }
     }
@@ -97,7 +101,7 @@ public class TurtleSimActionLibClientTest {
         try {
 
 
-            logger.trace("Starting Tasks");
+            LOGGER.trace("Starting Tasks");
             testClient.getShapeActionClient().waitForActionServerToStart();
             final ShapeActionGoal goalAction = testClient.getShapeActionClient().newGoalMessage();
             goalAction.getGoal().setEdges(3);
@@ -108,7 +112,7 @@ public class TurtleSimActionLibClientTest {
             ClientState newState = oldState;
             while (!ClientState.DONE.equals((newState = testClient.getShapeActionClient().getGoalState()))) {
                 if (oldState != newState) {
-                    logger.trace("State:" + oldState + " --> " + newState);
+                    LOGGER.trace("State:" + oldState + " --> " + newState);
                     oldState = newState;
                 }
                 try {
@@ -117,14 +121,14 @@ public class TurtleSimActionLibClientTest {
                 }
             }
 
-            logger.trace("Falling asleep");
+            LOGGER.trace("Falling asleep");
 
 
-            logger.trace("Stopping");
+            LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
             Assert.fail(ExceptionUtils.getStackTrace(e));
         }
     }
@@ -135,7 +139,7 @@ public class TurtleSimActionLibClientTest {
         try {
             rosExecutor.stopNodeMain(testClient);
         } catch (final Exception e2) {
-            logger.error(ExceptionUtils.getStackTrace(e2));
+            LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
 
         this.testClient = null;

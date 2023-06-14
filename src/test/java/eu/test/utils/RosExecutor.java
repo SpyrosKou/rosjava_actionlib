@@ -24,7 +24,10 @@ import org.ros.node.DefaultNodeMainExecutor;
 import org.ros.node.NodeConfiguration;
 import org.ros.node.NodeMain;
 import org.ros.node.NodeMainExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.net.URI;
 import java.util.Objects;
 
@@ -38,7 +41,7 @@ import java.util.Objects;
  */
 public final class RosExecutor {
 
-    private static final Log LOGGER = LogFactory.getLog(RosExecutor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private NodeMainExecutor nodeMainExecutor = null;
     private final String rosHostIp;
 

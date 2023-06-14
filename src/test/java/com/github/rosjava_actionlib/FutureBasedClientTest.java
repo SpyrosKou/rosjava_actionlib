@@ -23,14 +23,15 @@ import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.ros.RosCore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * Demonstrate future usage
  */
 public class FutureBasedClientTest {
-    private static final Logger LOGGER= LogManager.getLogger(FutureBasedClientTest.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     private static final TestProperties testProperties = TestProperties.getFromDefaultFile();
 

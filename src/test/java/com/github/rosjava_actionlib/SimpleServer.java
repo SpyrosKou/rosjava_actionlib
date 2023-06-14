@@ -22,11 +22,13 @@ import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.invoke.MethodHandles;
 
 /**
  * @deprecated see {@link FutureBasedClient} which utilizes the {@link ActionFuture}
@@ -37,7 +39,7 @@ import org.ros.node.ConnectedNode;
  */
 @Deprecated
 class SimpleServer extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
-    private static final Logger LOGGER = LogManager.getLogger(SimpleClient.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionServer = null;
     private volatile FibonacciActionGoal currentGoal = null;
     private volatile boolean isStarted=false;

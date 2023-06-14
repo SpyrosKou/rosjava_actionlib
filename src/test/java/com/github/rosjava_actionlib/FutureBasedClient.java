@@ -26,7 +26,10 @@ import org.ros.message.Duration;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -36,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * @author Spyros Koukas
  */
 class FutureBasedClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
-    private static Log LOGGER = LogFactory.getLog(SimpleClient.class);
+private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionClient actionClient = null;
 
     private volatile boolean isStarted = false;

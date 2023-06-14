@@ -5,10 +5,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.invoke.MethodHandles;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.StringJoiner;
@@ -20,7 +23,7 @@ import java.util.StringJoiner;
  * @author Spyros Koukas
  */
 public class TestProperties{
-    private static Log logger = LogFactory.getLog(TestProperties.class);
+private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final static String ROS_HOST_IP_PARAMETER_NAME = "ROS_IP";
     private final static String ROS_HOSTNAME_PARAMETER_NAME = "ROS_HOSTNAME";
     private final static String ROS_MASTER_URI_PARAMETER_NAME = "ROS_MASTER_URI";
@@ -125,14 +128,14 @@ public class TestProperties{
             this.rosMasterUriPort= PropertiesUtilities.getInt(ROS_MASTER_URI_PORT_PARAMETER_NAME, properties);
             this.rosCoreStartWaitMillis=PropertiesUtilities.getLong(ROS_CORE_START_WAIT_MILLIS_PARAMETER_NAME_, properties);
 
-            logger.trace("Loaded from:" + propertyFileName + " " + this.toString());
+            LOGGER.trace("Loaded from:" + propertyFileName + " " + this.toString());
 
             Preconditions.checkArgument(StringUtils.isNotBlank(rosHostIp), "rosHostIp should not be blank.");
             Preconditions.checkArgument(StringUtils.isNotBlank(rosHostName), "rosHostName should not be blank.");
             Preconditions.checkArgument(StringUtils.isNotBlank(rosMasterUri), "rosMasterUri should not be blank.");
         }
         catch (final IOException e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
             throw new RuntimeException(e);
         }
     }

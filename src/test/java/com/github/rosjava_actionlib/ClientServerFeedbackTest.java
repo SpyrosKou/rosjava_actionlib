@@ -24,7 +24,10 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.ros.RosCore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerFeedbackTest {
@@ -32,7 +35,7 @@ public class ClientServerFeedbackTest {
         // comment this line if you want logs activated
         System.setProperty("org.apache.commons.logging.Log","org.apache.commons.logging.impl.NoOpLog");
     }
-    private static Log logger = LogFactory.getLog(ClientServerFeedbackTest.class);
+private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final TestProperties testProperties=TestProperties.getFromDefaultFile();
     private static final String ROS_HOST_IP = testProperties.getRosHostIp();
     private static final int ROS_MASTER_URI_PORT = testProperties.getRosMasterUriPort();
@@ -57,7 +60,7 @@ public class ClientServerFeedbackTest {
             this.rosExecutor.startNodeMain(actionLibClientFeedback, actionLibClientFeedback.getDefaultNodeName().toString(),  ROS_MASTER_URI);
             this.actionLibClientFeedback.waitForStart();
         } catch (final Exception er3) {
-            logger.error(ExceptionUtils.getStackTrace(er3));
+            LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
         }
 
@@ -71,23 +74,23 @@ public class ClientServerFeedbackTest {
 
             try {
 
-                logger.trace("Starting Tasks");
+                LOGGER.trace("Starting Tasks");
 
                 actionLibClientFeedback.getFibonnaciBlocking(10);
-                logger.trace("Falling asleep");
+                LOGGER.trace("Falling asleep");
 
                 try {
                     Thread.sleep(10_000);
                 } catch (final Exception er3) {
-                    logger.error(ExceptionUtils.getStackTrace(er3));
+                    LOGGER.error(ExceptionUtils.getStackTrace(er3));
                 }
-                logger.trace("Awaken");
+                LOGGER.trace("Awaken");
 
-                logger.trace("Stopping");
+                LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -97,23 +100,23 @@ public class ClientServerFeedbackTest {
 
         try {
 
-            logger.trace("Starting Tasks");
+            LOGGER.trace("Starting Tasks");
 
             actionLibClientFeedback.getFibonnaciBlockingWithCancelation(10);
-            logger.trace("Falling asleep");
+            LOGGER.trace("Falling asleep");
 
             try {
                 Thread.sleep(10_000);
             } catch (final Exception er3) {
-                logger.error(ExceptionUtils.getStackTrace(er3));
+                LOGGER.error(ExceptionUtils.getStackTrace(er3));
             }
-            logger.trace("Awaken");
+            LOGGER.trace("Awaken");
 
-            logger.trace("Stopping");
+            LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -122,19 +125,19 @@ public class ClientServerFeedbackTest {
         try {
             rosExecutor.stopNodeMain(actionLibServerFeedback);
         } catch (final Exception e2) {
-            logger.error(ExceptionUtils.getStackTrace(e2));
+            LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
             rosExecutor.stopNodeMain(actionLibClientFeedback);
         } catch (final Exception e2) {
-            logger.error(ExceptionUtils.getStackTrace(e2));
+            LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
             if (this.rosExecutor != null) {
                 this.rosExecutor.stopAllNodesAndClose();
             }
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
         try {
@@ -143,7 +146,7 @@ public class ClientServerFeedbackTest {
 
             }
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
         this.actionLibClientFeedback = null;
         this.actionLibServerFeedback = null;

@@ -22,7 +22,10 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -31,7 +34,7 @@ import java.util.Properties;
  *
  */
 final class PropertiesUtilities {
-    private static final Log logger = LogFactory.getLog(PropertiesUtilities.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     private PropertiesUtilities() {
     }
@@ -51,7 +54,7 @@ final class PropertiesUtilities {
             result = Integer.parseInt(propertyValue);
         }
         catch (final Exception e) {
-            logger.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while an integer is expected.");
+            LOGGER.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while an integer is expected.");
             throw new IllegalStateException(e);
 
         }
@@ -72,7 +75,7 @@ final class PropertiesUtilities {
             result = Long.parseLong(propertyValue);
         }
         catch (final Exception e) {
-            logger.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while a long is expected.");
+            LOGGER.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while a long is expected.");
             throw new IllegalStateException(e);
 
         }

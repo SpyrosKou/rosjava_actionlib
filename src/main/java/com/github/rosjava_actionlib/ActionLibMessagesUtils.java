@@ -19,9 +19,10 @@ package com.github.rosjava_actionlib;
 
 import actionlib_msgs.GoalStatus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.Objects;
 
@@ -31,7 +32,7 @@ import java.util.Objects;
  * @author Spyros Koukas
  */
 final class ActionLibMessagesUtils {
-    private static final Log logger = LogFactory.getLog(ActionLibMessagesUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     public static final String UNKNOWN_GOAL_STATUS = "UNKNOWN GOAL STATUS";
 
 
@@ -153,7 +154,7 @@ final class ActionLibMessagesUtils {
             m.setAccessible(true); // workaround for known bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6924232
             subMessage = (R_SUB_MESSAGE) m.invoke(message);
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
         return subMessage;
     }
@@ -175,7 +176,7 @@ final class ActionLibMessagesUtils {
             m.setAccessible(true); // workaround for known bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6924232
             m.invoke(message, submessage);
         } catch (final Exception e) {
-            logger.error(ExceptionUtils.getStackTrace(e));
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
 

@@ -17,10 +17,11 @@
 package com.github.rosjava_actionlib;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.ros.node.Node;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.function.Supplier;
 
 /**
@@ -29,7 +30,7 @@ import java.util.function.Supplier;
  * @author Spyros Koukas
  */
 final class NodePrinter {
-    private static final Log LOGGER = LogFactory.getLog(NodePrinter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     static final String translateConnectedNodeToString(final Node node) {
         final String result;

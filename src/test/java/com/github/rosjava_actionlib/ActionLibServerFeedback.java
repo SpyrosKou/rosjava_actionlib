@@ -25,7 +25,10 @@ import org.apache.commons.logging.LogFactory;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -44,7 +47,7 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
     }
 
     public static final String DEFAULT_ACTION_NAME = "/fibonacci";
-    private static final Log logger = LogFactory.getLog(ActionLibServerFeedback.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionServer = null;
     private volatile boolean isStarted = false;
     private static final long SLEEP_MILLIS = 100;
@@ -61,9 +64,9 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
             try {
                 Thread.sleep(5);
             } catch (final InterruptedException ie) {
-                logger.error(ExceptionUtils.getStackTrace(ie));
+                LOGGER.error(ExceptionUtils.getStackTrace(ie));
             } catch (final Exception e) {
-                logger.error(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(e));
+                LOGGER.error(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(e));
             }
         }
     }
@@ -88,9 +91,9 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
      */
     public void goalReceived(final FibonacciActionGoal goal) {
         if (goal != null) {
-            logger.trace("Goal received : " + goal);
+            LOGGER.trace("Goal received : " + goal);
         } else {
-            logger.debug("Goal is null");
+            LOGGER.debug("Goal is null");
         }
 
     }
@@ -101,13 +104,13 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
      */
     @Override
     public void cancelReceived(final GoalID goalId) {
-        logger.trace("Cancel received for ID:" + goalId);
+        LOGGER.trace("Cancel received for ID:" + goalId);
         if (goalId != null && goalId.getId() != null) {
             final String id = goalId.getId();
             final CompletableFuture<FibonacciActionGoal> preexistingGoal = goals.get(id);
             // If we don't have a goal, accept it. Otherwise, reject it.
             if (preexistingGoal == null) {
-                logger.trace("Goal not found");
+                LOGGER.trace("Goal not found");
 
             } else {
                 preexistingGoal.cancel(true);
@@ -128,7 +131,7 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
 
         futureTask.runAsync(() -> {
             final String id = goal.getGoalId().getId();
-            logger.trace("Starting the execution of GOAL:" + id);
+            LOGGER.trace("Starting the execution of GOAL:" + id);
             sleep(SLEEP_MILLIS);
 
 
@@ -152,10 +155,10 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
             actionServer.setSucceed(id);
             actionServer.setGoalStatus(result.getStatus(), id);
 
-            logger.trace("Sending result...");
+            LOGGER.trace("Sending result...");
             actionServer.sendResult(result);
             goals.remove(id);
-            logger.trace("Finishing the execution of GOAL:" + id);
+            LOGGER.trace("Finishing the execution of GOAL:" + id);
         });
 
 
@@ -185,10 +188,10 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
             final CompletableFuture<FibonacciActionGoal> preexistingGoal = goals.putIfAbsent(id, calculateAsync(goal));
             // If there is no current goal, accept it. Otherwise, reject it.
             if (preexistingGoal == null) {
-                logger.trace("Goal accepted:" + goal);
+                LOGGER.trace("Goal accepted:" + goal);
                 return true;
             } else {
-                logger.trace("Goal already exists. Goal Rejected:" + goal);
+                LOGGER.trace("Goal already exists. Goal Rejected:" + goal);
                 return false;
             }
         } else {

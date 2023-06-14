@@ -18,8 +18,10 @@ package com.github.rosjava_actionlib;
 
 import actionlib_msgs.GoalStatus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.invoke.MethodHandles;
 
 /*
  * Class to manage the server state machine transitions.
@@ -30,7 +32,7 @@ import org.apache.commons.logging.LogFactory;
 final class ServerStateMachine {
     private static final boolean THROW_EXCEPTION_ON_TRANSITION_ERROR = false;
 
-    private static final Log LOGGER = LogFactory.getLog(ServerStateMachine.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     /**
      * Events that trigger transitions

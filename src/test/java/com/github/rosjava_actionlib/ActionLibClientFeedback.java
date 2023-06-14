@@ -26,7 +26,10 @@ import org.ros.message.Duration;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 
@@ -42,7 +45,7 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
         System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
     }
 
-    private static final Log logger = LogFactory.getLog(ActionLibClientFeedback.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
 
     private ActionClient actionClient = null;
@@ -63,9 +66,9 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
             try {
                 Thread.sleep(5);
             } catch (final InterruptedException ie) {
-                logger.error(ExceptionUtils.getStackTrace(ie));
+                LOGGER.error(ExceptionUtils.getStackTrace(ie));
             } catch (final Exception e) {
-                logger.error(ExceptionUtils.getStackTrace(e));
+                LOGGER.error(ExceptionUtils.getStackTrace(e));
             }
         }
     }
@@ -80,12 +83,12 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
 
         // Attach listener for the callbacks
 
-        logger.trace("Waiting for action server to start...");
+        LOGGER.trace("Waiting for action server to start...");
         serverStarted = actionClient.waitForActionServerToStart(new Duration(200));
         if (serverStarted) {
-            logger.trace("Action server started.\n");
+            LOGGER.trace("Action server started.\n");
         } else {
-            logger.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+            LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
 //            System.exit(1);
         }
 
@@ -94,16 +97,16 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
         final FibonacciGoal fibonacciGoal = goalMessage.getGoal();
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
-        logger.trace("Sending goal...");
+        LOGGER.trace("Sending goal...");
         actionClient.sendGoal(goalMessage);
         final GoalID gid1 = goalMessage.getGoalId();
-        logger.trace("Sent goal with ID: " + gid1.getId());
-        logger.trace("Waiting for goal to complete...");
+        LOGGER.trace("Sent goal with ID: " + gid1.getId());
+        LOGGER.trace("Waiting for goal to complete...");
 
         while (actionClient.getGoalState() != ClientState.DONE) {
             sleep(1);
         }
-        logger.trace("Goal completed!\n");
+        LOGGER.trace("Goal completed!\n");
     }
 
     /**
@@ -116,12 +119,12 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
 
         // Attach listener for the callbacks
 
-        logger.trace("Waiting for action server to start...");
+        LOGGER.trace("Waiting for action server to start...");
         serverStarted = actionClient.waitForActionServerToStart(new Duration(200));
         if (serverStarted) {
-            logger.trace("Action server started.\n");
+            LOGGER.trace("Action server started.\n");
         } else {
-            logger.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+            LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
 //            System.exit(1);
         }
 
@@ -131,16 +134,16 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
 
-        logger.trace("Sending a new goal...");
+        LOGGER.trace("Sending a new goal...");
         actionClient.sendGoal(goalMessage);
         final GoalID gid2 = goalMessage.getGoalId();
-        logger.trace("Sent goal with ID: " + gid2.getId());
-        logger.trace("Cancelling this goal...");
+        LOGGER.trace("Sent goal with ID: " + gid2.getId());
+        LOGGER.trace("Cancelling this goal...");
         actionClient.sendCancel(gid2);
         while (actionClient.getGoalState() != ClientState.DONE) {
             sleep(1);
         }
-        logger.trace("Goal cancelled successfully.\n");
+        LOGGER.trace("Goal cancelled successfully.\n");
 
 
     }
@@ -170,7 +173,7 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
             stringBuilder.append("");
         }
 
-        logger.trace(stringBuilder.toString());
+        LOGGER.trace(stringBuilder.toString());
     }
 
     @Override
@@ -185,7 +188,7 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
             stringBuilder.append(Integer.toString(sequence[i]));
             stringBuilder.append("");
         }
-        logger.trace(stringBuilder.toString());
+        LOGGER.trace(stringBuilder.toString());
     }
 
     /**
@@ -196,9 +199,9 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
     public void statusReceived(final GoalStatusArray status) {
         List<GoalStatus> statusList = status.getStatusList();
         for (GoalStatus gs : statusList) {
-            logger.trace("GoalID: " + gs.getGoalId().getId() + " -- GoalStatus: " + gs.getStatus() + " -- " + gs.getText());
+            LOGGER.trace("GoalID: " + gs.getGoalId().getId() + " -- GoalStatus: " + gs.getStatus() + " -- " + gs.getText());
         }
-        logger.trace("Goal Current state: " + actionClient.getGoalState());
+        LOGGER.trace("Goal Current state: " + actionClient.getGoalState());
     }
 
     private void sleep(long msec) {
