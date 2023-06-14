@@ -5,7 +5,7 @@ plugins {
     id 'java'
 }
 group 'com.github.rosjava'
-version = '0.3.2'
+version = '2023.06.14.02'
 description = 'A pure java version of actionlib'
 sourceCompatibility = JavaVersion.VERSION_17
 
