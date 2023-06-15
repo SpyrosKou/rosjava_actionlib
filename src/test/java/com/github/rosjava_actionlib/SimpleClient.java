@@ -22,10 +22,6 @@ import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.*;
 import com.google.common.base.Stopwatch;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.ros.message.Duration;
-import org.ros.message.Time;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -36,6 +32,8 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -46,8 +44,8 @@ import java.util.concurrent.TimeUnit;
 class SimpleClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionClient actionClient = null;
-    private volatile boolean resultReceived = false;
-    private volatile boolean isStarted = false;
+    private volatile AtomicBoolean resultReceived = new AtomicBoolean(false);
+    private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
 
@@ -63,37 +61,24 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
      * @return
      */
     public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
-
-        if (this.isStarted) {
-            final Stopwatch stopwatch = Stopwatch.createStarted();
-            boolean serverStarted = false;
-            LOGGER.trace("Waiting for action server to start...");
-            serverStarted = this.actionClient.waitForActionServerToStart(timeout, timeUnit
-            );
-            if (serverStarted) {
-                LOGGER.trace("Action server started.\n");
-                return true;
-            } else {
-                LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
-                return false;
-            }
-        } else {
-            return false;
-        }
-
-    }
-
-    /**
-     * @param timeout  the maximum time to wait before the client is started
-     * @param timeUnit the unit of time measurement
-     * @return
-     */
-    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit) {
+        boolean debugShown=false;
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        final boolean publishersStarted = this.actionClient.waitForServerPublishers(timeout, timeUnit);
-        LOGGER.trace("Publishers detected after:" + +stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
-        return publishersStarted;
-
+        boolean result = this.waitForClientStart(timeout, timeUnit);
+        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
+            debugShown=true;
+            LOGGER.debug("waitForClientStart did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        result = result && this.actionClient.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
+            debugShown=true;
+            LOGGER.debug("waitForServerPublishers did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        result = result && this.actionClient.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
+            debugShown=true;
+            LOGGER.debug("waitForClientSubscribers did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        return result;
     }
 
 
@@ -140,24 +125,31 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
     @Override
     public void onStart(final ConnectedNode connectedNode) {
         this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
-        this.isStarted = true;
+        this.isStarted.set(true);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
         this.countDownLatch.countDown();
 
     }
 
-    public final boolean wait(final long timeout, final TimeUnit timeUnit) {
+    /**
+     * Wait for the client node to start.
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return true if the client has started, false
+     */
+    public final boolean waitForClientStart(final long timeout, final TimeUnit timeUnit) {
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isStarted) {
+        while (!this.isStarted.get()) {
             try {
                 final boolean result = this.countDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
-                return this.isStarted;
+                return result;
             } catch (final Exception exception) {
 
             }
         }
-        return this.isStarted;
+        return this.isStarted.get();
     }
 
 
@@ -170,7 +162,7 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
         int[] sequence = result.getSequence();
         int i;
 
-        resultReceived = true;
+        this.resultReceived.set(true);
         LOGGER.trace("Got Fibonacci result sequence: ");
         for (i = 0; i < sequence.length; i++)
             LOGGER.trace(Integer.toString(sequence[i]) + " ");
