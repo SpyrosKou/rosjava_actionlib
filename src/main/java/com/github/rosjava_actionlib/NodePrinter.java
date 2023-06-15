@@ -55,9 +55,8 @@ final class NodePrinter {
                 stringBuilder.append(name);
             }
             {
-                final String uri = supplierToString(node::getUri);
                 stringBuilder.append("]\n[uri:");
-                stringBuilder.append(uri);
+                stringBuilder.append(supplierToString(node::getUri));
             }
             stringBuilder.append("}");
             result = stringBuilder.toString();
