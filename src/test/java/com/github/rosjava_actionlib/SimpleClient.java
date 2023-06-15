@@ -25,6 +25,7 @@ import com.google.common.base.Stopwatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.ros.message.Duration;
+import org.ros.message.Time;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -33,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 
@@ -46,6 +48,7 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
     private ActionClient actionClient = null;
     private volatile boolean resultReceived = false;
     private volatile boolean isStarted = false;
+    private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
 
     @Override
@@ -55,7 +58,8 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
 
 
     /**
-     * @param seconds the maximum time to wait before the client is started
+     * @param timeout  the maximum time to wait before the client is started
+     * @param timeUnit the unit of time
      * @return
      */
     public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
@@ -79,13 +83,26 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
 
     }
 
+    /**
+     * @param timeout  the maximum time to wait before the client is started
+     * @param timeUnit the unit of time measurement
+     * @return
+     */
+    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final boolean publishersStarted = this.actionClient.waitForServerPublishers(timeout, timeUnit);
+        LOGGER.trace("Publishers detected after:" + +stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
+        return publishersStarted;
+
+    }
+
 
     /**
      * Demonstrates using the client in a node
      * This is a rather simple set of sequential calls.
      */
     public void startTasks() {
-        if (!this.waitForServerConnection(20,TimeUnit.SECONDS)) {
+        if (!this.waitForServerConnection(20, TimeUnit.SECONDS)) {
             System.exit(1);
         }
 
@@ -121,13 +138,28 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
 
 
     @Override
-    public void onStart(final ConnectedNode node) {
-        this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+    public void onStart(final ConnectedNode connectedNode) {
+        this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
         this.isStarted = true;
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
+        this.countDownLatch.countDown();
 
     }
+
+    public final boolean wait(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        while (!this.isStarted) {
+            try {
+                final boolean result = this.countDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+                return this.isStarted;
+            } catch (final Exception exception) {
+
+            }
+        }
+        return this.isStarted;
+    }
+
 
     /**
      * @param message
