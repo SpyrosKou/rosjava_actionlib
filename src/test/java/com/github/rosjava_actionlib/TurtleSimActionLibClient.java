@@ -81,7 +81,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
     public void waitForStart() {
         while (!this.isStarted) {
             if (this.getShapeActionClient() != null) {
-                this.getShapeActionClient().waitForActionServerToStart();
+                this.getShapeActionClient().waitForActionServerToStart(1,TimeUnit.DAYS);
             }
             sleep(5);
         }

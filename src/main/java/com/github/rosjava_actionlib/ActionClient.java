@@ -579,12 +579,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
 
-    /**
-     * Wait indefinitely until an actionlib server is connected.
-     */
-    public final void waitForActionServerToStart() {
-        waitForActionServerToStart(0,TimeUnit.SECONDS);
-    }
+
 
 
     /**
