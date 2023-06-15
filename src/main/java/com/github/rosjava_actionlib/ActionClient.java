@@ -27,7 +27,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
-import org.ros.message.Duration;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
@@ -81,6 +80,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private final TopicSubscriberListener<T_ACTION_RESULT> resultArrayTopicSubscriberListener;
     private final TopicSubscriberListener<T_ACTION_FEEDBACK> feedbackArrayTopicSubscriberListener;
 
+    private final TopicPublisherListener<T_ACTION_GOAL> goalTopicPublisherListener;
+    private final TopicPublisherListener<GoalID> cancelTopicPublisherListener;
+
 
     private final ConnectedNode connectedNode;
 
@@ -115,9 +117,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.getStatusTopicName());
         this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.getResultTopicName());
         this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.getFeedbackTopicName());
-
-        this.connect(connectedNode);
+        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, this.getGoalTopicName());
+        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, this.getCancelTopicName());
         this.goalManager = new ClientGoalManager<>(new ActionGoal<>());
+        this.connect(connectedNode);
 
 
     }
@@ -265,9 +268,11 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     private final void publishClient(final ConnectedNode connectedNode) {
         Objects.requireNonNull(connectedNode);
-        this.goalPublisher = connectedNode.newPublisher(actionName + "/goal", actionGoalType);
+        this.goalPublisher = connectedNode.newPublisher(this.getGoalTopicName(), actionGoalType);
         this.goalPublisher.setLatchMode(LATCH_MODE);
-        this.cancelPublisher = connectedNode.newPublisher(actionName + "/cancel", GoalID._TYPE);
+        this.goalPublisher.addListener(this.goalTopicPublisherListener);
+        this.cancelPublisher = connectedNode.newPublisher(this.getCancelTopicName(), GoalID._TYPE);
+        this.cancelPublisher.addListener(this.cancelTopicPublisherListener);
     }
 
     /**
@@ -323,6 +328,14 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     private final String getStatusTopicName() {
         return actionName + "/status";
+    }
+
+    private final String getGoalTopicName() {
+        return actionName + "/goal";
+    }
+
+    private final String getCancelTopicName() {
+        return actionName + "/cancel";
     }
 
     /**
@@ -471,12 +484,14 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param node The node object that is connected to the ROS master.
      */
     private final void connect(final ConnectedNode node) {
-        this.publishClient(node);
         this.subscribeToServer(node);
+
+        this.publishClient(node);
     }
 
     /**
-     * Waits for a certain time period until the subscribers of the client are registered with the master.
+     * Waits for a given timeout period until the subscribers of the client are registered with the master.
+     *
      * @param timeout
      * @param timeUnit
      * @return true if client subscribers to the result, feedback and status topics have been registered before the timeout elapses, else false
@@ -490,8 +505,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
-     * Waits for a certain time period until the  publishers are detected in the server topics.
+     * Waits for a given timeout period until the  publishers are detected in the server topics.
      * Normally these should be the publishers of the server.
+     *This is a heuristic method
      * @param timeout
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
@@ -505,6 +521,46 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
+     * Waits for a given timeout period until the  publishers are detected in the server topics.
+     * Normally these should be the publishers of the server.
+     *This is a heuristic method
+     * @param timeout
+     * @param timeUnit
+     * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
+     */
+    public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean debugShown=false;
+        boolean result = this.goalTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
+            debugShown=true;
+            LOGGER.debug("waitForSubscriber goal did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        result = result && this.cancelTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
+            debugShown=true;
+            LOGGER.debug("waitForSubscriber cancel did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        return result;
+    }
+
+    /**
+     * Waits for a given timeout period until publishers and subscribers are detected in the server topics.
+     * Normally these should be the publishers and clients of the server
+     * This is a heuristic method
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return true if all publishers and clients required for the client/server connection are connected, else false
+     */
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean result = this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        return result;
+    }
+
+    /**
      * Wait for an actionlib server to connect.
      *
      * @param timeout The maximum amount of time to wait for an action server. If
@@ -513,7 +569,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @return True if the action server was detected before the timeout and
      * false otherwise.
      */
-    public final boolean waitForActionServerToStart(final long timeout,final TimeUnit timeUnit) {
+    public final boolean waitForActionServerToStart(final long timeout, final TimeUnit timeUnit) {
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         boolean result = false;
@@ -523,7 +579,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         boolean feedbackSubscriberFlag = false;
         boolean resultSubscriberFlag = false;
         boolean statusSubscriberFlag = false;
-        while (!result && (stopwatch.elapsed(timeUnit)<timeout)) {
+        while (!result && (stopwatch.elapsed(timeUnit) < timeout)) {
             tests++;
             final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
             if (!goalHasSubscribers) {
@@ -577,9 +633,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         }
         return result;
     }
-
-
-
 
 
     /**
