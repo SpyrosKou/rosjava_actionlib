@@ -71,23 +71,38 @@ public class WaitMethodsClientServerTest {
     }
 
 
+    /**
+     * TODO remove Sleep
+     */
     @Test
+    @Deprecated
     public void testClientServer() {
         try {
-            final long timeoutMillis = 20_000;
+            final long timeoutMillis = 10_000;
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
             this.rosExecutor.startNodeMain(this.simpleClient, this.simpleClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean clientStarted = this.simpleClient.wait(20, TimeUnit.SECONDS);
+            final boolean clientStarted = this.simpleClient.waitForClientStart(20, TimeUnit.SECONDS);
             Assert.assertTrue("ClientNotStarted", clientStarted);
             final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
             Assert.assertTrue(timeoutMillis >= clientConnectionsMillis);
             LOGGER.trace("Connected at:" + clientConnectionsMillis + " Millis");
-            final Stopwatch stopwatchPublishers = Stopwatch.createStarted();
-            final boolean waitForServerPublishers = this.simpleClient.waitForServerPublishers(timeoutMillis, TimeUnit.MILLISECONDS);
-            final long publishersDurationMillis = stopwatchPublishers.elapsed(TimeUnit.MILLISECONDS);
-            Assert.assertTrue("Not Connected to server", waitForServerPublishers);
-            Assert.assertTrue(timeoutMillis >= publishersDurationMillis);
-            LOGGER.trace("Connected at:" + publishersDurationMillis + " Millis");
+            {            //-------------------------------------------------------------------------------------------------------
+                final Stopwatch stopwatchPublishers = Stopwatch.createStarted();
+                final boolean waitForServerPublishers = this.simpleClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+                final long publishersDurationMillis = stopwatchPublishers.elapsed(TimeUnit.MILLISECONDS);
+                Assert.assertTrue("Not Connected to server", waitForServerPublishers);
+                Assert.assertTrue(timeoutMillis >= publishersDurationMillis);
+                LOGGER.trace("Connected at:" + publishersDurationMillis + " Millis");
+            }
+            {            //-------------------------------------------------------------------------------------------------------
+                final Stopwatch stopwatchPublishers = Stopwatch.createStarted();
+                final boolean waitForServerPublishers = this.simpleClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+                final long publishersDurationMillis = stopwatchPublishers.elapsed(TimeUnit.MILLISECONDS);
+                Assert.assertTrue("Not Connected to server", waitForServerPublishers);
+                Assert.assertTrue(timeoutMillis >= publishersDurationMillis);
+                LOGGER.trace("Connected at:" + publishersDurationMillis + " Millis");
+            }
+
 
             this.simpleClient.startTasks();
             LOGGER.trace("Falling asleep");
