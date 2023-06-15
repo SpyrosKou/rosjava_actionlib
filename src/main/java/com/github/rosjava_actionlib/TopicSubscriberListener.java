@@ -1,8 +1,6 @@
 package com.github.rosjava_actionlib;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Strings;
 import org.ros.internal.message.Message;
 import org.ros.internal.node.topic.PublisherIdentifier;
 import org.ros.master.client.MasterStateClient;
@@ -17,64 +15,19 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-final class TopicSubscriberListener<T extends Message> implements org.ros.node.topic.SubscriberListener<T> {
+final class TopicSubscriberListener<T extends Message>  extends TopicParticipantListener implements org.ros.node.topic.SubscriberListener<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final AtomicBoolean isRegistered = new AtomicBoolean(false);
-    private final ConnectedNode connectedNode;
     private final AtomicLong knownPublishersCount = new AtomicLong(0);
-    private final CountDownLatch registrationCountDownLatch = new CountDownLatch(1);
+
     private final CountDownLatch publisherConnectionNoticed = new CountDownLatch(1);
-    private final String topicName;
+
 
     TopicSubscriberListener(final ConnectedNode connectedNode, final String topicName) {
-        Preconditions.checkNotNull(connectedNode);
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(topicName));
-        this.connectedNode = connectedNode;
-        this.topicName = topicName;
+        super(connectedNode,topicName);
     }
 
-    public final boolean isRegistered() {
-        return this.isRegistered.get();
-    }
-
-    public final boolean waitForRegistration() {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isRegistered()) {
-            try {
-                this.registrationCountDownLatch.await();
-                return this.isRegistered();
-            } catch (final InterruptedException interruptedException) {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " " + TimeUnit.MILLISECONDS);
-                }
-            }
-        }
-        return this.isRegistered();
-    }
-
-    /**
-     * @param timeout
-     * @param timeUnit
-     * @return
-     */
-    public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit) {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isRegistered()) {
-            try {
-                this.registrationCountDownLatch.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-                return this.isRegistered();
-            } catch (final InterruptedException interruptedException) {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
-                }
-            }
-        }
-        return this.isRegistered();
-    }
 
     public final boolean waitForPublisher() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
@@ -117,7 +70,8 @@ final class TopicSubscriberListener<T extends Message> implements org.ros.node.t
         if (connected) {
             result = true;
         } else {
-            final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
+            final ConnectedNode connectedNode=this.getConnectedNode();
+            final MasterStateClient masterStateClient = new MasterStateClient(connectedNode, connectedNode.getMasterUri());
             final long publishers = this.countPublishers(masterStateClient);
             this.knownPublishersCount.set(publishers);
             result = publishers != 0L;
@@ -134,7 +88,7 @@ final class TopicSubscriberListener<T extends Message> implements org.ros.node.t
 
         final long result = masterStateClient.getSystemState().getTopics().stream()
                 .filter(Objects::nonNull)
-                .filter(topicSystemState -> this.topicName.equals(topicSystemState.getTopicName()))
+                .filter(topicSystemState -> this.getTopicName().equals(topicSystemState.getTopicName()))
                 .map(TopicSystemState::getPublishers)
                 .filter(Objects::nonNull)
                 .flatMap(Set::stream)
@@ -154,48 +108,30 @@ final class TopicSubscriberListener<T extends Message> implements org.ros.node.t
     }
 
     @Override
-    final public void onShutdown(final Subscriber<T> subscriber) {
-        this.isRegistered.set(false);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Shutdown subscriber for topic:" + subscriber.getTopicName() + " type:" + subscriber.getTopicMessageType());
-        }
+    public final void onShutdown(final Subscriber<T> subscriber) {
+        super.onShutdown(subscriber);
+    }
+
+
+
+
+    @Override
+    public void onMasterRegistrationSuccess(final Subscriber<T> subscriber) {
+        super.onMasterRegistrationSuccess(subscriber);
     }
 
     @Override
-    final public void onMasterRegistrationSuccess(final Subscriber<T> subscriber) {
-        this.isRegistered.set(true);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Master Registration success for topic:" + subscriber.getTopicName() + " type:" + subscriber.getTopicMessageType());
-        }
+    public void onMasterRegistrationFailure(final Subscriber<T> subscriber) {
+        super.onMasterRegistrationFailure(subscriber);
     }
 
     @Override
-    final public void onMasterRegistrationFailure(final Subscriber<T> subscriber) {
-        this.isRegistered.set(false);
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Master Registration Failure for topic:" + subscriber.getTopicName() + " type:" + subscriber.getTopicMessageType());
-        }
+    public void onMasterUnregistrationSuccess(final Subscriber<T> subscriber) {
+        super.onMasterUnregistrationSuccess(subscriber);
     }
 
     @Override
-    final public void onMasterUnregistrationSuccess(final Subscriber<T> subscriber) {
-        this.isRegistered.set(false);
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Master UnRegistration Success for topic:" + subscriber.getTopicName() + " type:" + subscriber.getTopicMessageType());
-        }
-    }
-
-    @Override
-    final public void onMasterUnregistrationFailure(final Subscriber<T> subscriber) {
-
-        this.isRegistered.set(false);
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Master UnRegistration Failure for topic:" + subscriber.getTopicName() + " type:" + subscriber.getTopicMessageType());
-        }
-    }
-
-    @Override
-    public final String toString() {
-        return "isRegistered:" + this.isRegistered() + "isPublisherConnected:" + this.isPublisherConnected();
+    public void onMasterUnregistrationFailure(final Subscriber<T> subscriber) {
+        super.onMasterUnregistrationFailure(subscriber);
     }
 }
