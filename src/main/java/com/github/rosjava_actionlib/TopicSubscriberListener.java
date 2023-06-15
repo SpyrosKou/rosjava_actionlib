@@ -29,20 +29,6 @@ final class TopicSubscriberListener<T extends Message>  extends TopicParticipant
     }
 
 
-    public final boolean waitForPublisher() {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isPublisherConnected()) {
-            try {
-                this.publisherConnectionNoticed.await();
-                return this.isPublisherConnected();
-            } catch (final InterruptedException interruptedException) {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " " + TimeUnit.MILLISECONDS);
-                }
-            }
-        }
-        return this.isRegistered();
-    }
 
     /**
      * @param timeout
@@ -53,15 +39,15 @@ final class TopicSubscriberListener<T extends Message>  extends TopicParticipant
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (!this.isPublisherConnected()) {
             try {
-                this.publisherConnectionNoticed.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-                return this.isPublisherConnected();
+                return this.publisherConnectionNoticed.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 }
             }
         }
-        return this.isRegistered();
+        return this.isPublisherConnected();
     }
 
     public final boolean isPublisherConnected() {
