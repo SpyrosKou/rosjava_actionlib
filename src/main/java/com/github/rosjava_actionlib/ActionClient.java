@@ -513,9 +513,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @return True if the action server was detected before the timeout and
      * false otherwise.
      */
-    public final boolean waitForActionServerToStart(final Duration timeout) {
+    public final boolean waitForActionServerToStart(final long timeout,final TimeUnit timeUnit) {
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        final long durationInNanos = timeout.totalNsecs();
+
         boolean result = false;
         long tests = 0;
         boolean goalHasSubscribers = false;
@@ -523,7 +523,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         boolean feedbackSubscriberFlag = false;
         boolean resultSubscriberFlag = false;
         boolean statusSubscriberFlag = false;
-        while (!result && (durationInNanos <= 0 || stopwatch.elapsed(TimeUnit.NANOSECONDS) <= durationInNanos)) {
+        while (!result && (stopwatch.elapsed(timeUnit)<timeout)) {
             tests++;
             final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
             if (!goalHasSubscribers) {
@@ -583,7 +583,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * Wait indefinitely until an actionlib server is connected.
      */
     public final void waitForActionServerToStart() {
-        waitForActionServerToStart(new Duration(0));
+        waitForActionServerToStart(0,TimeUnit.SECONDS);
     }
 
 

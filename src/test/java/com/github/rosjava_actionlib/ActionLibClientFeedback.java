@@ -19,6 +19,7 @@ import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.*;
+import com.google.common.base.Stopwatch;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -77,18 +79,18 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
      *Sample method only to test client communication.
      */
     public void getFibonnaciBlocking(final int order) {
-        Duration serverTimeout = new Duration(20);
+        final Stopwatch stopwatch=Stopwatch.createStarted();
         boolean serverStarted;
 
 
         // Attach listener for the callbacks
 
         LOGGER.trace("Waiting for action server to start...");
-        serverStarted = actionClient.waitForActionServerToStart(new Duration(200));
+        serverStarted = actionClient.waitForActionServerToStart(200, TimeUnit.MILLISECONDS);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
-            LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+            LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " milliseconds!");
 //            System.exit(1);
         }
 
@@ -113,18 +115,18 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
      *Sample method only to test client communication.
      */
     public void getFibonnaciBlockingWithCancelation(final int order) {
-        Duration serverTimeout = new Duration(20);
+        final Stopwatch stopwatch=Stopwatch.createStarted();
         boolean serverStarted;
 
 
         // Attach listener for the callbacks
 
         LOGGER.trace("Waiting for action server to start...");
-        serverStarted = actionClient.waitForActionServerToStart(new Duration(200));
+        serverStarted = actionClient.waitForActionServerToStart(200,TimeUnit.MILLISECONDS);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
-            LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+            LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " milliseconds!");
 //            System.exit(1);
         }
 

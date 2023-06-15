@@ -27,6 +27,7 @@ import turtle_actionlib.ShapeActionGoal;
 import turtle_actionlib.ShapeGoal;
 
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test to if {@link TurtleSimActionLibClient} can drive turtle sim action lib server
@@ -36,7 +37,7 @@ import java.lang.invoke.MethodHandles;
  */
 @Ignore //uncomment to use this test is ignored
 public class TurtleSimActionLibClientTest {
-private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final String ROS_HOST_IP = "127.0.0.1";
     private static final String ROS_MASTER_IP_PORT = "http://127.0.0.1:11311";
     private TurtleSimActionLibClient testClient = null;
@@ -73,7 +74,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
             final ShapeGoal goal = testClient.createShapeGoal();
             goal.setEdges(4);
             goal.setRadius(1f);
-            testClient.synchronousCompleteGoal(goal, 20.0f);
+            testClient.synchronousCompleteGoal(goal, 20, TimeUnit.SECONDS);
             LOGGER.trace("Falling asleep");
 
             try {

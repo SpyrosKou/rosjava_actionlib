@@ -69,7 +69,7 @@ final class TopicSubscriberListener<T extends Message> implements org.ros.node.t
                 return this.isRegistered();
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit);
+                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 }
             }
         }
@@ -104,7 +104,7 @@ final class TopicSubscriberListener<T extends Message> implements org.ros.node.t
                 return this.isPublisherConnected();
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit);
+                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 }
             }
         }

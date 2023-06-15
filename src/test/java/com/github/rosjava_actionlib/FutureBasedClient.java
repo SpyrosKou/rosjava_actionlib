@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * @author Spyros Koukas
  */
 class FutureBasedClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
-private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionClient actionClient = null;
 
     private volatile boolean isStarted = false;
@@ -53,24 +53,23 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
     /**
      * @param seconds the maximum time to wait before the client is started
-     *
      * @return
      */
-    public final boolean waitForServerConnection(final double seconds) {
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isStarted && stopwatch.elapsed(TimeUnit.SECONDS) <= seconds) {
+        while (!this.isStarted && stopwatch.elapsed(timeUnit) <= timeout) {
             this.sleep(100);
         }
         if (this.isStarted) {
-            final Duration serverTimeout = new Duration(Math.max(0.1, seconds - stopwatch.elapsed(TimeUnit.SECONDS)));
+
             boolean serverStarted = false;
             LOGGER.trace("Waiting for action server to start...");
-            serverStarted = this.actionClient.waitForActionServerToStart(serverTimeout);
+            serverStarted = this.actionClient.waitForActionServerToStart(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
             if (serverStarted) {
                 LOGGER.trace("Action server started.\n");
                 return true;
             } else {
-                LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+                LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 return false;
             }
         } else {
@@ -81,7 +80,6 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
     /**
      * @param order
-     *
      * @return a future of the fibonacci
      */
     public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> invoke(final int order) {

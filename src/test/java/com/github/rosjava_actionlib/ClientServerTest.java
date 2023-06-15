@@ -39,7 +39,6 @@ public class ClientServerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
 
-
     private static final TestProperties testProperties = TestProperties.getFromDefaultFile();
 
     private static final String ROS_HOST_IP = testProperties.getRosHostIp();
@@ -65,7 +64,7 @@ public class ClientServerTest {
             this.rosExecutor.startNodeMain(this.simpleServer, this.simpleServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.simpleServer.waitForStart();
             this.rosExecutor.startNodeMain(this.simpleClient, this.simpleClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean connectedToServer = this.simpleClient.waitForServerConnection(20);
+            final boolean connectedToServer = this.simpleClient.waitForServerConnection(20, TimeUnit.SECONDS);
             Assume.assumeTrue("Not Connected to server", connectedToServer);
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));

@@ -21,6 +21,7 @@ import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.*;
+import com.google.common.base.Stopwatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.ros.message.Duration;
@@ -32,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -40,7 +42,7 @@ import java.util.List;
  * @author Spyros Koukas
  */
 class SimpleClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
-private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionClient actionClient = null;
     private volatile boolean resultReceived = false;
     private volatile boolean isStarted = false;
@@ -53,22 +55,22 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
 
     /**
-     *
      * @param seconds the maximum time to wait before the client is started
      * @return
      */
-    public  final boolean waitForServerConnection(final double seconds) {
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
 
         if (this.isStarted) {
-            final Duration serverTimeout = new Duration(seconds);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
             boolean serverStarted = false;
             LOGGER.trace("Waiting for action server to start...");
-            serverStarted = this.actionClient.waitForActionServerToStart(serverTimeout);
+            serverStarted = this.actionClient.waitForActionServerToStart(timeout, timeUnit
+            );
             if (serverStarted) {
                 LOGGER.trace("Action server started.\n");
                 return true;
             } else {
-                LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+                LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 return false;
             }
         } else {
@@ -83,7 +85,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
      * This is a rather simple set of sequential calls.
      */
     public void startTasks() {
-        if(!this.waitForServerConnection(20)){
+        if (!this.waitForServerConnection(20,TimeUnit.SECONDS)) {
             System.exit(1);
         }
 
@@ -170,8 +172,6 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     }
 
     /**
-     *
-     *
      * @param msec
      */
     private final void sleep(final long msec) {

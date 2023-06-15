@@ -18,9 +18,11 @@ package com.github.rosjava_actionlib;
 import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
+import com.google.common.base.Stopwatch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.ros.message.Duration;
+import org.ros.message.Time;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -31,6 +33,7 @@ import turtle_actionlib.*;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created at 2019-04-19
@@ -45,7 +48,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
     private final String clientName;
     private static final String DEFAULT_NAME = "turtleSimDefaultClient";
 
-    public final ActionClient<ShapeActionGoal, ShapeActionFeedback, ShapeActionResult> getShapeActionClient(){
+    public final ActionClient<ShapeActionGoal, ShapeActionFeedback, ShapeActionResult> getShapeActionClient() {
         return this.shapeActionClient;
     }
 
@@ -77,7 +80,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
      **/
     public void waitForStart() {
         while (!this.isStarted) {
-            if(this.getShapeActionClient()!=null){
+            if (this.getShapeActionClient() != null) {
                 this.getShapeActionClient().waitForActionServerToStart();
             }
             sleep(5);
@@ -94,20 +97,22 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
      * Waits for the goal to complete, or timeout, or fail
      *
      * @param shapeGoal
-     * @param serverStartTimeoutSecs
+     * @param timeout
+     * @param timeUnit
      */
     @Deprecated
-    public void synchronousCompleteGoal(final ShapeGoal shapeGoal, final double serverStartTimeoutSecs) {
+    public void synchronousCompleteGoal(final ShapeGoal shapeGoal, final long timeout, final TimeUnit timeUnit) {
         Objects.requireNonNull(shapeGoal);
+        final Stopwatch stopwatch = Stopwatch.createStarted();
 
         // Attach listener for the callbacks
 
         LOGGER.trace("\nWaiting for action server to start...");
-        final boolean serverStarted = shapeActionClient.waitForActionServerToStart(new Duration(new Duration(serverStartTimeoutSecs)));
+        final boolean serverStarted = shapeActionClient.waitForActionServerToStart(timeout, timeUnit);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
-            LOGGER.trace("No actionlib server found after waiting for " + serverStartTimeoutSecs + " seconds!");
+            LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(timeUnit) + timeUnit.name());
         }
 
         // Create Fibonacci goal message
@@ -192,7 +197,6 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
          * Called when a status message is received from the server.
          *
          * @param status The status message received from the server.
-         *
          * @see GoalStatusArray
          */
         @Override

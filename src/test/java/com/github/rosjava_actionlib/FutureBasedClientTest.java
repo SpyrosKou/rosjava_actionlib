@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * Demonstrate future usage
  */
 public class FutureBasedClientTest {
-  private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     private static final TestProperties testProperties = TestProperties.getFromDefaultFile();
 
@@ -65,7 +65,7 @@ public class FutureBasedClientTest {
             this.rosExecutor.startNodeMain(this.simpleServer, this.simpleServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.simpleServer.waitForStart();
             this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean serverStarted = this.futureBasedClient.waitForServerConnection(30);
+            final boolean serverStarted = this.futureBasedClient.waitForServerConnection(30, TimeUnit.SECONDS);
             Assume.assumeTrue("Server Not Started", serverStarted);
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
@@ -82,7 +82,7 @@ public class FutureBasedClientTest {
     public void testFutureBasedClientWithStatuses() {
         try {
             LOGGER.trace("Starting Tasks");
-            this.futureBasedClient.waitForServerConnection(20);
+            this.futureBasedClient.waitForServerConnection(20, TimeUnit.SECONDS);
             LOGGER.trace("Server Started");
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(3);
             String lastClientState = null;
@@ -116,7 +116,7 @@ public class FutureBasedClientTest {
     public void testFutureBasedClient() {
         try {
             LOGGER.trace("Starting Tasks");
-            this.futureBasedClient.waitForServerConnection(20);
+            this.futureBasedClient.waitForServerConnection(20, TimeUnit.SECONDS);
             LOGGER.trace("Server Started");
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(3);
 
