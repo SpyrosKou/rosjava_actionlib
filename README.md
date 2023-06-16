@@ -13,6 +13,9 @@ A pure java implementation of [actionlib](http://wiki.ros.org/actionlib) for [ro
     * Refactored code, grouping together common elements
 5. Robust detection of started ActionServer in waitForActionServerToStart
 6. Targeted to be used as part of other Java / ROS Java applications via gradle or maven, similar to other java libraries
+
+Other Changes:   
+1. Client only responds to messages for the same GoalId.  
  
 ## Requirements:
 * Java 11 or greater (OpenJDK should work).
