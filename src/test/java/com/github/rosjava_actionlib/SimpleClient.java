@@ -22,6 +22,7 @@ import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.*;
 import com.google.common.base.Stopwatch;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -43,7 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 class SimpleClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private ActionClient actionClient = null;
+    private ActionClient<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> actionClient = null;
     private volatile AtomicBoolean resultReceived = new AtomicBoolean(false);
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -61,21 +62,21 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
      * @return
      */
     public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
-        boolean debugShown=false;
+        boolean debugShown = false;
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean result = this.waitForClientStart(timeout, timeUnit);
-        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
-            debugShown=true;
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
             LOGGER.debug("waitForClientStart did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
         }
         result = result && this.actionClient.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
-            debugShown=true;
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
             LOGGER.debug("waitForServerPublishers did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
         }
         result = result && this.actionClient.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
-            debugShown=true;
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
             LOGGER.debug("waitForClientSubscribers did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
         }
         return result;
@@ -92,7 +93,7 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
         }
 
         // Create Fibonacci goal message
-        final FibonacciActionGoal goalMessage = (FibonacciActionGoal) actionClient.newGoalMessage();
+        final FibonacciActionGoal goalMessage = actionClient.newGoalMessage();
         final FibonacciGoal fibonacciGoal = goalMessage.getGoal();
         // set Fibonacci parameter
         fibonacciGoal.setOrder(3);
@@ -124,7 +125,7 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
 
     @Override
     public void onStart(final ConnectedNode connectedNode) {
-        this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
         this.isStarted.set(true);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
@@ -146,7 +147,9 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
                 final boolean result = this.countDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
                 return result;
             } catch (final Exception exception) {
-
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Interrupted:" + ExceptionUtils.getStackTrace(exception));
+                }
             }
         }
         return this.isStarted.get();
@@ -158,7 +161,7 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
      */
     @Override
     public void resultReceived(final FibonacciActionResult message) {
-        FibonacciResult result = message.getResult();
+        final FibonacciResult result = message.getResult();
         int[] sequence = result.getSequence();
         int i;
 
