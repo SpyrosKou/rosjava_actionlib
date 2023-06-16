@@ -3,6 +3,7 @@ package com.github.rosjava_actionlib;
 import com.google.common.base.Stopwatch;
 import org.ros.internal.message.Message;
 import org.ros.internal.node.topic.SubscriberIdentifier;
+import org.ros.internal.node.topic.TopicIdentifier;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
 import org.ros.node.ConnectedNode;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 final class TopicPublisherListener<T extends Message> extends TopicParticipantListener implements org.ros.node.topic.PublisherListener<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -23,11 +25,17 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
 
     private final CountDownLatch subscriberConnectionNoticed = new CountDownLatch(1);
 
-
-    TopicPublisherListener(final ConnectedNode connectedNode, final String topicName) {
-        super(connectedNode, topicName);
+    /**
+     * @param connectedNode
+     * @param topicName
+     * @param callOnceOnConnectionConsumer
+     */
+    TopicPublisherListener(final ConnectedNode connectedNode, final String topicName, final Consumer<String> callOnceOnConnectionConsumer) {
+        super(connectedNode, topicName, callOnceOnConnectionConsumer);
+        if (this.isSubscriberConnected()) {
+            this.callOnceOnConnection();
+        }
     }
-
 
 
     /**
@@ -39,18 +47,23 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (!this.isSubscriberConnected()) {
             try {
-                return this.subscriberConnectionNoticed.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+                final boolean ok = this.subscriberConnectionNoticed.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+                break;
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 }
             }
         }
-        return this.isSubscriberConnected();
+        final boolean result = this.isSubscriberConnected();
+        if (result) {
+            this.callOnceOnConnection();
+        }
+        return result;
     }
 
     public final boolean isSubscriberConnected() {
-        final boolean connected = !this.knownSubscribersCount.equals(0L);
+        final boolean connected = this.knownSubscribersCount.get() > 0L;
         final boolean result;
         if (connected) {
             result = true;
@@ -89,6 +102,8 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("New publisher for Topic:" + publisher.getTopicName() + " type:" + publisher.getTopicMessageType() + " total subscribers:" + subscribers);
         }
+        this.callOnceOnConnection();
+
     }
 
 
@@ -116,9 +131,6 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
     public final void onShutdown(final Publisher<T> publisher) {
         super.onShutdown(publisher);
     }
-
-
-
 
 
 }

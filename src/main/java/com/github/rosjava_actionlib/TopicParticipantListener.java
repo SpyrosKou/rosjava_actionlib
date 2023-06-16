@@ -6,6 +6,7 @@ import com.google.common.base.Strings;
 import org.ros.internal.message.Message;
 import org.ros.internal.node.topic.PublisherIdentifier;
 import org.ros.internal.node.topic.SubscriberIdentifier;
+import org.ros.internal.node.topic.TopicIdentifier;
 import org.ros.internal.node.topic.TopicParticipant;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
@@ -22,10 +23,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
-abstract  class TopicParticipantListener {
+abstract class TopicParticipantListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final AtomicBoolean isRegistered = new AtomicBoolean(false);
+    private final AtomicBoolean hasCallOnceBeenCalled = new AtomicBoolean(false);
     private final ConnectedNode connectedNode;
 
     protected final ConnectedNode getConnectedNode() {
@@ -39,11 +42,30 @@ abstract  class TopicParticipantListener {
         return this.topicName;
     }
 
-    TopicParticipantListener(final ConnectedNode connectedNode, final String topicName) {
+
+    /**
+     * This method will be called only once on connection.
+     */
+    private final Consumer<String> callOnceOnConnection;
+
+    final void callOnceOnConnection() {
+        if (this.hasCallOnceBeenCalled.compareAndSet(false, true)) {
+            this.callOnceOnConnection.accept(this.topicName);
+        }
+    }
+
+    /**
+     * @param connectedNode
+     * @param topicName
+     * @param callOnceOnConnection
+     */
+    TopicParticipantListener(final ConnectedNode connectedNode, final String topicName, final Consumer<String> callOnceOnConnection) {
         Preconditions.checkNotNull(connectedNode);
         Preconditions.checkArgument(!Strings.isNullOrEmpty(topicName));
+        Preconditions.checkNotNull(callOnceOnConnection);
         this.connectedNode = connectedNode;
         this.topicName = topicName;
+        this.callOnceOnConnection = callOnceOnConnection;
     }
 
     public final boolean isRegistered() {

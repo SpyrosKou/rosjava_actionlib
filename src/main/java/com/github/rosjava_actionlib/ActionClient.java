@@ -25,6 +25,7 @@ import com.google.common.base.Stopwatch;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
+import org.ros.internal.node.topic.TopicIdentifier;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
 import org.ros.node.ConnectedNode;
@@ -33,18 +34,21 @@ import org.ros.node.topic.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.*;
 import java.lang.invoke.MethodHandles;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.StringJoiner;
+import java.util.*;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * Client implementation for actionlib.
  * This class encapsulates the communication with an actionlib server.
  * Can accept more than one Action Listeners
+ * *
  *
  * @author Ernesto Corbellini ecorbellini@ekumenlabs.com
  * @author Spyros Koukas
@@ -73,6 +77,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private final List<ActionClientFeedbackListener<T_ACTION_FEEDBACK>> callbackFeedbackTargets = new CopyOnWriteArrayList<>();
     private final List<ActionClientStatusListener> callbackStatusTargets = new CopyOnWriteArrayList<>();
 
+    private final AtomicBoolean hasOnConnectionBeenCalled = new AtomicBoolean(false);
+    private Runnable onConnection = this::doNothing;
+
     private final GoalIDGenerator goalIdGenerator;
     private volatile boolean statusSubscriberFlagReception = false;
 
@@ -82,7 +89,17 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     private final TopicPublisherListener<T_ACTION_GOAL> goalTopicPublisherListener;
     private final TopicPublisherListener<GoalID> cancelTopicPublisherListener;
+    private final CopyOnWriteArraySet<String> topicsToBeConnectedSet;
 
+    private static final CopyOnWriteArraySet<String> createTopicConnectionSet(final String actionName) {
+        final CopyOnWriteArraySet<String> result = new CopyOnWriteArraySet<>();
+        result.add(ActionClient.getCancelTopicName(actionName));
+        result.add(ActionClient.getResultTopicName(actionName));
+        result.add(ActionClient.getStatusTopicName(actionName));
+        result.add(ActionClient.getFeedbackTopicName(actionName));
+        result.add(ActionClient.getGoalTopicName(actionName));
+        return result;
+    }
 
     private final ConnectedNode connectedNode;
 
@@ -113,17 +130,49 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.actionResultType = actionResultType;
         this.goalIdGenerator = new GoalIDGenerator(connectedNode);
         this.connectedNode = connectedNode;
+        this.topicsToBeConnectedSet = ActionClient.createTopicConnectionSet(actionName);
 
-        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.getStatusTopicName());
-        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.getResultTopicName());
-        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.getFeedbackTopicName());
-        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, this.getGoalTopicName());
-        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, this.getCancelTopicName());
+        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getStatusTopicName(actionName), this::processProcessConnection);
+        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getResultTopicName(actionName), this::processProcessConnection);
+        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getFeedbackTopicName(actionName), this::processProcessConnection);
+        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getGoalTopicName(actionName), this::processProcessConnection);
+        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getCancelTopicName(actionName), this::processProcessConnection);
         this.goalManager = new ClientGoalManager<>(new ActionGoal<>());
         this.connect(connectedNode);
-
-
     }
+
+    /**
+     * Internal method that
+     *
+     * @param topicName
+     */
+    private final void processProcessConnection(final String topicName) {
+        //If the connection Runnable has been called ignore any calls to this function.
+        if (!this.hasOnConnectionBeenCalled.get()) {
+            Preconditions.checkArgument(StringUtils.isNotBlank(topicName));
+
+            final boolean existed = this.topicsToBeConnectedSet.remove(topicName);
+            if (existed && this.topicsToBeConnectedSet.isEmpty()) {
+                //On the last topic connection call the method, if it has not been called
+                if (this.hasOnConnectionBeenCalled.compareAndSet(false, true)) {
+                    this.onConnection.run();
+                }
+            }
+
+        } else {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Internal method for:" + topicName + " Called multiple times. Node:" + (this.connectedNode == null ? null : this.connectedNode.getName()));
+            }
+        }
+    }
+
+    /**
+     * Does nothing
+     */
+    private final void doNothing() {
+    }
+
+    ;
 
     /**
      * @param target the listener to add
@@ -319,22 +368,43 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     private final String getResultTopicName() {
-        return actionName + "/result";
+        return ActionClient.getResultTopicName(actionName);
     }
 
     private final String getFeedbackTopicName() {
-        return actionName + "/feedback";
+        return ActionClient.getFeedbackTopicName(actionName);
     }
 
     private final String getStatusTopicName() {
-        return actionName + "/status";
+        return ActionClient.getStatusTopicName(actionName);
     }
 
     private final String getGoalTopicName() {
-        return actionName + "/goal";
+        return ActionClient.getGoalTopicName(actionName);
     }
 
     private final String getCancelTopicName() {
+        return ActionClient.getCancelTopicName(actionName);
+    }
+
+
+    private static final String getResultTopicName(final String actionName) {
+        return actionName + "/result";
+    }
+
+    private static final String getFeedbackTopicName(final String actionName) {
+        return actionName + "/feedback";
+    }
+
+    private static final String getStatusTopicName(final String actionName) {
+        return actionName + "/status";
+    }
+
+    private static final String getGoalTopicName(final String actionName) {
+        return actionName + "/goal";
+    }
+
+    private static final String getCancelTopicName(final String actionName) {
         return actionName + "/cancel";
     }
 
