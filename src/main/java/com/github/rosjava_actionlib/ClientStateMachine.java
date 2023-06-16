@@ -17,10 +17,14 @@
 
 package com.github.rosjava_actionlib;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -35,7 +39,7 @@ final class ClientStateMachine {
 
     private ClientState latestGoalStatus = null;
     private ClientState state = ClientState.UNKNOWN_STATE;
-    private final Log log = LogFactory.getLog(ActionClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     /**
      * A ClientStateMachine should always have an existing starting state.
@@ -64,8 +68,8 @@ final class ClientStateMachine {
      */
     final synchronized void setState(final ClientState state) {
         Objects.requireNonNull(state);
-        if(log.isInfoEnabled()) {
-            log.info("ClientStateMachine - State changed from " + this.state + " to " + state);
+        if(LOGGER.isInfoEnabled()) {
+            LOGGER.info("ClientStateMachine - State changed from " + this.state + " to " + state);
         }
         this.state = state;
     }
@@ -95,8 +99,8 @@ final class ClientStateMachine {
         // transition to next states
         final List<ClientState> nextStates = this.getTransition(goalStatus);
 
-        if (this.log.isTraceEnabled()) {
-            this.log.trace("State transition invoked. GoalStatus:" + goalStatus);
+        if (this.LOGGER.isTraceEnabled()) {
+            this.LOGGER.trace("State transition invoked. GoalStatus:" + goalStatus);
         }
 
         for (final ClientState state : nextStates) {
