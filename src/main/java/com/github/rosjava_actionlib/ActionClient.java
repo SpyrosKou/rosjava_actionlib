@@ -360,21 +360,29 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
-     * Called whenever we get a message in the result topic.
+     * Called whenever we get a resultMessage in the result topic.
+     * Only addresses
      *
-     * @param message The result message received. The type of this message
-     *                depends on the application.
+     * @param resultMessage The result resultMessage received. The type of this resultMessage
+     *                      depends on the application.
      */
-    private final void gotResult(T_ACTION_RESULT message) {
-        ActionResult<T_ACTION_RESULT> ar = new ActionResult<>(message);
-        if (ar.getGoalStatusMessage().getGoalId().getId().equals(goalManager.getActionGoal().getGoalId())) {
-            goalManager.updateStatus(ar.getGoalStatusMessage().getStatus());
-        }
-        goalManager.resultReceived();
-        // Propagate the callback
-        for (final ActionClientResultListener<T_ACTION_RESULT> actionClientListener : this.callbackResultTargets) {
-            if (actionClientListener != null) {
-                actionClientListener.resultReceived(message);
+    private final void gotResult(T_ACTION_RESULT resultMessage) {
+        final ActionResult<T_ACTION_RESULT> actionResultMessage = new ActionResult<>(resultMessage);
+        final GoalID goalID = actionResultMessage.getGoalStatusMessage().getGoalId();
+        if (this.goalManager.getActionGoal().getGoalId().equals(goalID.getId())) {
+            this.goalManager.updateStatus(actionResultMessage.getGoalStatusMessage().getStatus());
+
+            this.goalManager.resultReceived();
+            // Propagate the callback
+            for (final ActionClientResultListener<T_ACTION_RESULT> actionClientListener : this.callbackResultTargets) {
+                if (actionClientListener != null) {
+                    actionClientListener.resultReceived(resultMessage);
+                }
+            }
+            try {
+                this.sendCancel(goalID);
+            } catch (final Exception exception) {
+                LOGGER.error("Error while cancelling goal of received result" + ExceptionUtils.getStackTrace(exception));
             }
         }
     }
@@ -389,11 +397,12 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         ActionFeedback<T_ACTION_FEEDBACK> af = new ActionFeedback<>(message);
         if (af.getGoalStatusMessage().getGoalId().getId().equals(goalManager.getActionGoal().getGoalId())) {
             goalManager.updateStatus(af.getGoalStatusMessage().getStatus());
-        }
-        // Propagate the callback
-        for (final ActionClientFeedbackListener<T_ACTION_FEEDBACK> actionClientListener : this.callbackFeedbackTargets) {
-            if (actionClientListener != null) {
-                actionClientListener.feedbackReceived(message);
+
+            // Propagate the callback
+            for (final ActionClientFeedbackListener<T_ACTION_FEEDBACK> actionClientListener : this.callbackFeedbackTargets) {
+                if (actionClientListener != null) {
+                    actionClientListener.feedbackReceived(message);
+                }
             }
         }
     }
@@ -412,6 +421,13 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         if (goalStatus != null) {
             // update the goal status tracking
             this.goalManager.updateStatus(goalStatus.getStatus());
+            // Propagate the callback
+
+            for (final ActionClientStatusListener actionClientListener : this.callbackStatusTargets) {
+                if (actionClientListener != null) {
+                    actionClientListener.statusReceived(message);
+                }
+            }
         } else {
             if (LOGGER.isDebugEnabled()) {
                 if (message.getStatusList() != null && !message.getStatusList().isEmpty()) {
@@ -419,19 +435,11 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                 }
             }
         }
-        // Propagate the callback
-
-        for (final ActionClientStatusListener actionClientListener : this.callbackStatusTargets) {
-            if (actionClientListener != null) {
-                actionClientListener.statusReceived(message);
-            }
-        }
 
     }
 
     /**
-     * Walk through the status array and find the status for the action goal that
-     * we are interested in.
+     * Walk through the status array and find the status for the action goal for this client
      *
      * @param statusMessage The message with the goal status array
      *                      (actionlib_msgs.GoalStatusArray)
@@ -507,7 +515,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * Waits for a given timeout period until the  publishers are detected in the server topics.
      * Normally these should be the publishers of the server.
-     *This is a heuristic method
+     * This is a heuristic method
+     *
      * @param timeout
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
@@ -523,22 +532,23 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * Waits for a given timeout period until the  publishers are detected in the server topics.
      * Normally these should be the publishers of the server.
-     *This is a heuristic method
+     * This is a heuristic method
+     *
      * @param timeout
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
      */
     public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) {
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        boolean debugShown=false;
+        boolean debugShown = false;
         boolean result = this.goalTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
-            debugShown=true;
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
             LOGGER.debug("waitForSubscriber goal did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
         }
         result = result && this.cancelTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        if (!result &&!debugShown&& LOGGER.isDebugEnabled()) {
-            debugShown=true;
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
             LOGGER.debug("waitForSubscriber cancel did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
         }
         return result;
