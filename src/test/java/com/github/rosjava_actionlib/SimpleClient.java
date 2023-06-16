@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,11 +45,22 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 class SimpleClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private ActionClient<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> actionClient = null;
+    private ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionClient = null;
     private volatile AtomicBoolean resultReceived = new AtomicBoolean(false);
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
+    public final Runnable getOnConnection() {
+        return onConnection;
+    }
+
+    public final void setOnConnection(final Runnable onConnection) {
+        Objects.requireNonNull(onConnection);
+        this.onConnection = onConnection;
+    }
+
+    private Runnable onConnection = () -> {
+    };
 
     @Override
     public GraphName getDefaultNodeName() {
@@ -125,7 +137,8 @@ class SimpleClient extends AbstractNodeMain implements ActionClientListener<Fibo
 
     @Override
     public void onStart(final ConnectedNode connectedNode) {
-        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE,this.getOnConnection());
+
         this.isStarted.set(true);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);

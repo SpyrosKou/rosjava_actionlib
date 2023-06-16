@@ -16,6 +16,7 @@ A pure java implementation of [actionlib](http://wiki.ros.org/actionlib) for [ro
 
 Other Changes:   
 1. Client only responds to messages for the same GoalId.  
+2. ActionClient can call a [Runnable](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Runnable.html) once and only if and when connected to the ActionLib protocol.
  
 ## Requirements:
 * Java 11 or greater (OpenJDK should work).

@@ -78,7 +78,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private final List<ActionClientStatusListener> callbackStatusTargets = new CopyOnWriteArrayList<>();
 
     private final AtomicBoolean hasOnConnectionBeenCalled = new AtomicBoolean(false);
-    private Runnable onConnection = this::doNothing;
+    private final Runnable onConnection;
 
     private final GoalIDGenerator goalIdGenerator;
     private volatile boolean statusSubscriberFlagReception = false;
@@ -122,8 +122,36 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             , final String actionGoalType
             , final String actionFeedbackType
             , final String actionResultType) {
+        this(connectedNode, actionName, actionGoalType, actionFeedbackType, actionResultType, ActionClient::doNothing);
+    }
 
+    /**
+     * Constructor for an ActionClient object.
+     *
+     * @param connectedNode      The node object that is connected to the ROS master.
+     * @param actionName         A string representing the name of this action. This name
+     *                           is used to publish the actionlib topics and should be agreed between server
+     *                           and the client.
+     * @param actionGoalType     A string with the type information for the action
+     *                           goal message.
+     * @param actionFeedbackType A string with the type information for the
+     *                           feedback message.
+     * @param actionResultType   A string with the type information for the result
+     *                           message.
+     * @param onConnection       A {@link Runnable} that will be called only once, when and if this client has detected a complete connection to the RosActionLib protocol
+     */
+    public ActionClient(final ConnectedNode connectedNode
+            , final String actionName
+            , final String actionGoalType
+            , final String actionFeedbackType
+            , final String actionResultType,
+                        final Runnable onConnection) {
 
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionName));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionGoalType));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionFeedbackType));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionResultType));
+        Preconditions.checkNotNull(onConnection);
         this.actionName = actionName;
         this.actionGoalType = actionGoalType;
         this.actionFeedbackType = actionFeedbackType;
@@ -131,7 +159,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.goalIdGenerator = new GoalIDGenerator(connectedNode);
         this.connectedNode = connectedNode;
         this.topicsToBeConnectedSet = ActionClient.createTopicConnectionSet(actionName);
-
+        this.onConnection = onConnection;
         this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getStatusTopicName(actionName), this::processProcessConnection);
         this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getResultTopicName(actionName), this::processProcessConnection);
         this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getFeedbackTopicName(actionName), this::processProcessConnection);
@@ -169,7 +197,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * Does nothing
      */
-    private final void doNothing() {
+    private static final void doNothing() {
     }
 
     ;
