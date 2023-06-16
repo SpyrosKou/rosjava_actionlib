@@ -17,8 +17,6 @@
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -31,10 +29,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerFeedbackTest {
-    static {
-        // comment this line if you want logs activated
-        System.setProperty("org.apache.commons.logging.Log","org.apache.commons.logging.impl.NoOpLog");
-    }
+
 private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final TestProperties testProperties=TestProperties.getFromDefaultFile();
     private static final String ROS_HOST_IP = testProperties.getRosHostIp();

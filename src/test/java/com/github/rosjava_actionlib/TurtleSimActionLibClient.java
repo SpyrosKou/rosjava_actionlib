@@ -19,10 +19,6 @@ import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import com.google.common.base.Stopwatch;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.ros.message.Duration;
-import org.ros.message.Time;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -66,7 +62,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
 
     private volatile boolean isStarted = false;
 
-    private Log log;
+
 
     @Override
     public GraphName getDefaultNodeName() {

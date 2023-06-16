@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 
 /**
  * Demonstrate and test {@link SimpleServer} with {@link SimpleClient}
