@@ -97,6 +97,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         result.add(ActionClient.getStatusTopicName(actionName));
         result.add(ActionClient.getFeedbackTopicName(actionName));
         result.add(ActionClient.getGoalTopicName(actionName));
+        assert (result.size() == 5);
         return result;
     }
 
@@ -481,6 +482,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             } catch (final Exception exception) {
                 LOGGER.error("Error while cancelling goal of received result" + ExceptionUtils.getStackTrace(exception));
             }
+        } else {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Received and ignored GoalId:" + goalID.getId() + " because current client goal id==" + this.goalManager.getActionGoal().getGoalId());
+            }
         }
     }
 
@@ -768,7 +773,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @return
      */
     final ClientState getGoalState() {
-        return goalManager.getGoalState();
+        return this.goalManager.getGoalState();
     }
 
 
