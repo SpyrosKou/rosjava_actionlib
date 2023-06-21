@@ -80,7 +80,7 @@ The test client will connect to the fibonacci server and send it a goal. It
 should then receive feedback from the server and a final response. The output
 should look something like this:
 ```
-Loading node class: com.github.rosjava_actionlib.SimpleClient
+Loading node class: com.github.rosjava_actionlib.FibonacciActionLibClient
 
 Waiting for action server to start...
 Action server started.
