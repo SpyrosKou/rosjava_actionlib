@@ -20,6 +20,7 @@ package com.github.rosjava_actionlib;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
+import actionlib_tutorials.FibonacciGoal;
 import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -32,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -47,7 +49,8 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
 
     private final long timeout = 60;
     private final TimeUnit timeUnit = TimeUnit.SECONDS;
-    private final int TEST_INPUT=5;
+    private final int TEST_INPUT = 5;
+    private final int[] TEST_CORRECT_OUTPUT=new FibonacciCalculator().fibonacciSequence(TEST_INPUT);
 
     /**
      * Also demonstrates status of Client by printing client status when it changes
@@ -75,16 +78,16 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         try {
 
-            final boolean serverStarted = this.futureBasedClient.waitForServerConnection( this.timeout-stopwatch.elapsed(this.timeUnit) , timeUnit);
+            final boolean serverStarted = this.futureBasedClient.waitForServerConnection(this.timeout - stopwatch.elapsed(this.timeUnit), timeUnit);
             Assert.assertTrue("Server Not Started", serverStarted);
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(TEST_INPUT);
 
-            final FibonacciActionResult result = resultFuture.get( this.timeout-stopwatch.elapsed(this.timeUnit) , this.timeUnit);
+            final FibonacciActionResult result = resultFuture.get(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
             Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
             Assert.assertNotNull("Null Result", result);
 
-            final FibonacciCalculator fibonacciCalculator=new FibonacciCalculator();
-            Assert.assertTrue("Result was wrong",Arrays.equals(result.getResult().getSequence(),fibonacciCalculator.fibonacciSequence(TEST_INPUT)));;
+            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TEST_CORRECT_OUTPUT));
+            ;
 
         } catch (final Exception exception) {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
@@ -92,21 +95,42 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
         }
     }
 
+    @Test
+    public void testResultListener() {
+        final Stopwatch stopwatch=Stopwatch.createStarted();
+        final CountDownLatch resultReceived = new CountDownLatch(1);
+
+        final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
+        this.futureBasedClient.getActionClient().addListener(resultListener);
+        final ActionFuture<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> resultFuture= this.futureBasedClient.invoke(TEST_INPUT);
+        try {
+            final boolean resultReceivedOK=resultReceived.await(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
+            Assert.assertTrue("Result OK",resultReceivedOK);
+            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
+
+            final FibonacciActionResult fibonacciActionResult=resultFuture.get(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
+            Assert.assertTrue("Result OK",Arrays.equals(fibonacciActionResult.getResult().getSequence(), TEST_CORRECT_OUTPUT));
+            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+
+    }
 
 
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         Assume.assumeNotNull(rosExecutor);
         Assume.assumeTrue(rosMasterUri.isPresent());
-        final Stopwatch stopwatch=Stopwatch.createStarted();
+        final Stopwatch stopwatch = Stopwatch.createStarted();
         this.fibonacciActionLibServer = new FibonacciActionLibServer();
         this.futureBasedClient = new FutureBasedClient();
 
         rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
         this.fibonacciActionLibServer.waitForStart();
         rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), rosMasterUri.get());
-        final boolean serverStarted = this.futureBasedClient.waitForServerConnection(this.timeout-stopwatch.elapsed(this.timeUnit), this.timeUnit);
-        Assume.assumeTrue("Server Not Started. "+"Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, serverStarted);
+        final boolean serverStarted = this.futureBasedClient.waitForServerConnection(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
+        Assume.assumeTrue("Server Not Started. " + "Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, serverStarted);
 
     }
 

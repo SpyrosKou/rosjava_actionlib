@@ -159,4 +159,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
         }
     }
 
+    final ActionClient<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> getActionClient() {
+        return this.actionClient;
+    }
 }
