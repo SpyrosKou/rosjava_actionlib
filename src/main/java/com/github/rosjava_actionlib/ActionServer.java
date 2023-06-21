@@ -123,7 +123,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Publish the current status information for the tracked goals on the /status topic.
      *
      * @param status GoalStatusArray message containing the status to send.
-     *
      * @see actionlib_msgs.GoalStatusArray
      */
     public final void sendStatus(final GoalStatusArray status) {
@@ -284,9 +283,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final void subscribeToClient(final ConnectedNode node) {
         this.goalSubscriber = node.newSubscriber(this.getActionGoalTopic(), actionGoalType);
         this.cancelSubscriber = node.newSubscriber(this.getActionCancelTopic(), GoalID._TYPE);
-
         this.goalSubscriber.addMessageListener(this::gotGoal);
-
         this.cancelSubscriber.addMessageListener(this::gotCancel);
     }
 
@@ -306,6 +303,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * Called when a message is received from the subscribed goal topic.
+     *
      * @param goal
      */
     public final void gotGoal(final T_ACTION_GOAL goal) {
@@ -328,11 +326,16 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
                 this.setRejected(goalIdString);
             }
             this.sendStatusTick();
+        } else {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Got null goal:" + this.toString());
+            }
         }
+
     }
 
     /**
-     *  Called when we get a message on the subscribed cancel topic.
+     * Called when we get a message on the subscribed cancel topic.
      *
      * @param goalID
      */
@@ -386,7 +389,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Returns the goal ID object related to a given action goal.
      *
      * @param goal An action goal message.
-     *
      * @return The goal ID object.
      */
     public final GoalID getGoalId(final T_ACTION_GOAL goal) {
@@ -399,9 +401,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Get the current state of the referenced goal.
      *
      * @param goalId String representing the ID of the goal.
-     *
      * @return The current state of the goal or -100 if the goal ID is not tracked.
-     *
      * @see actionlib_msgs.GoalStatus
      */
     public final byte getGoalState(final String goalId) {
@@ -417,6 +417,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * Express a succeed event for this goal. The state of the goal will be updated.
+     *
      * @param goalIdString
      */
     public final void setSucceed(final String goalIdString) {
@@ -425,6 +426,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * Express a preempted event for this goal. The state of the goal will be updated.
+     *
      * @param goalIdString
      */
     public final void setPreempt(final String goalIdString) {
@@ -443,7 +445,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * the user rejected the goal
-     * @param goalIdString 
+     *
+     * @param goalIdString
      */
     private final void setRejected(final String goalIdString) {
         // the user rejected the goal
@@ -462,7 +465,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      *
      * @param goalStatus GoalStatus message.
      * @param gidString  String identifying the goal.
-     *
      * @see actionlib_msgs.GoalStatus
      */
     public final void setGoalStatus(final GoalStatus goalStatus, final String gidString) {
