@@ -21,7 +21,6 @@ import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.checkerframework.checker.units.qual.C;
 import org.junit.*;
 import org.ros.RosCore;
 import org.slf4j.Logger;
@@ -32,7 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Test wait methods with {@link SimpleServer} with {@link SimpleClient}
+ * Test wait methods with {@link FibonacciActionLibServer} with {@link FibonacciActionLibClient}
  */
 public class ConnectionNotificationMethodClientTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -44,9 +43,9 @@ public class ConnectionNotificationMethodClientTest {
 
     private RosCore rosCore = null;
 
-    private SimpleClient simpleClient = null;
+    private FibonacciActionLibClient fibonacciActionLibClient = null;
 
-    private SimpleServer simpleServer = null;
+    private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
     @Before
@@ -55,12 +54,12 @@ public class ConnectionNotificationMethodClientTest {
             this.rosCore = RosCore.newPrivate();
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            this.simpleServer = new SimpleServer();
+            this.fibonacciActionLibServer = new FibonacciActionLibServer();
 
-            this.simpleClient = new SimpleClient();
+            this.fibonacciActionLibClient = new FibonacciActionLibClient();
 
-            this.rosExecutor.startNodeMain(this.simpleServer, this.simpleServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
-            this.simpleServer.waitForStart();
+            this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            this.fibonacciActionLibServer.waitForStart();
 
 
         } catch (final Exception er3) {
@@ -82,9 +81,9 @@ public class ConnectionNotificationMethodClientTest {
             final long timeoutMillis = 30_000;
 
             final CountDownLatch countDownLatch = new CountDownLatch(1);
-            this.simpleClient.setOnConnection(() -> countDownLatch.countDown());
+            this.fibonacciActionLibClient.setOnConnection(() -> countDownLatch.countDown());
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
-            this.rosExecutor.startNodeMain(this.simpleClient, this.simpleClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            this.rosExecutor.startNodeMain(this.fibonacciActionLibClient, this.fibonacciActionLibClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
 
             final boolean clientStarted = countDownLatch.await(timeoutMillis, TimeUnit.MILLISECONDS);
             LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
@@ -101,12 +100,12 @@ public class ConnectionNotificationMethodClientTest {
     @After
     public void after() {
         try {
-            rosExecutor.stopNodeMain(simpleServer);
+            rosExecutor.stopNodeMain(fibonacciActionLibServer);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(simpleClient);
+            rosExecutor.stopNodeMain(fibonacciActionLibClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -129,8 +128,8 @@ public class ConnectionNotificationMethodClientTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
-        this.simpleClient = null;
-        this.simpleServer = null;
+        this.fibonacciActionLibClient = null;
+        this.fibonacciActionLibServer = null;
         this.rosCore = null;
     }
 

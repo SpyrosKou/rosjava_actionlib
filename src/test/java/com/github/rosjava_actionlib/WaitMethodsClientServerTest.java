@@ -27,10 +27,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Test wait methods with {@link SimpleServer} with {@link SimpleClient}
+ * Test wait methods with {@link FibonacciActionLibServer} with {@link FibonacciActionLibClient}
  */
 public class WaitMethodsClientServerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -43,9 +44,9 @@ public class WaitMethodsClientServerTest {
     private static final String ROS_MASTER_URI = testProperties.getRosMasterUri();
     private RosCore rosCore = null;
 
-    private SimpleClient simpleClient = null;
+    private FibonacciActionLibClient fibonacciActionLibClient = null;
 
-    private SimpleServer simpleServer = null;
+    private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
     @Before
@@ -54,12 +55,12 @@ public class WaitMethodsClientServerTest {
             this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            this.simpleServer = new SimpleServer();
+            this.fibonacciActionLibServer = new FibonacciActionLibServer();
 
-            this.simpleClient = new SimpleClient();
+            this.fibonacciActionLibClient = new FibonacciActionLibClient();
 
-            this.rosExecutor.startNodeMain(this.simpleServer, this.simpleServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            this.simpleServer.waitForStart();
+            this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
+            this.fibonacciActionLibServer.waitForStart();
 
 
         } catch (final Exception er3) {
@@ -80,15 +81,15 @@ public class WaitMethodsClientServerTest {
         try {
             final long timeoutMillis = 10_000;
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
-            this.rosExecutor.startNodeMain(this.simpleClient, this.simpleClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean clientStarted = this.simpleClient.waitForClientStart(20, TimeUnit.SECONDS);
+            this.rosExecutor.startNodeMain(this.fibonacciActionLibClient, this.fibonacciActionLibClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
+            final boolean clientStarted = this.fibonacciActionLibClient.waitForClientStart(20, TimeUnit.SECONDS);
             Assert.assertTrue("ClientNotStarted", clientStarted);
             final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
             Assert.assertTrue(timeoutMillis >= clientConnectionsMillis);
             LOGGER.trace("Connected at:" + clientConnectionsMillis + " Millis");
             {            //-------------------------------------------------------------------------------------------------------
                 final Stopwatch stopwatchPublishers = Stopwatch.createStarted();
-                final boolean waitForServerPublishers = this.simpleClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+                final boolean waitForServerPublishers = this.fibonacciActionLibClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
                 final long publishersDurationMillis = stopwatchPublishers.elapsed(TimeUnit.MILLISECONDS);
                 Assert.assertTrue("Not Connected to server", waitForServerPublishers);
                 Assert.assertTrue(timeoutMillis >= publishersDurationMillis);
@@ -96,7 +97,7 @@ public class WaitMethodsClientServerTest {
             }
             {            //-------------------------------------------------------------------------------------------------------
                 final Stopwatch stopwatchPublishers = Stopwatch.createStarted();
-                final boolean waitForServerPublishers = this.simpleClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+                final boolean waitForServerPublishers = this.fibonacciActionLibClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
                 final long publishersDurationMillis = stopwatchPublishers.elapsed(TimeUnit.MILLISECONDS);
                 Assert.assertTrue("Not Connected to server", waitForServerPublishers);
                 Assert.assertTrue(timeoutMillis >= publishersDurationMillis);
@@ -104,18 +105,9 @@ public class WaitMethodsClientServerTest {
             }
 
 
-            this.simpleClient.startTasks();
-            LOGGER.trace("Falling asleep");
-
-            try {
-                Thread.sleep(10_000);
-            } catch (final Exception er3) {
-                LOGGER.error(ExceptionUtils.getStackTrace(er3));
-            }
-            LOGGER.trace("Awaken");
-
-            LOGGER.trace("Stopping");
-
+            final CountDownLatch countDownLatch = this.fibonacciActionLibClient.callNormal();
+            final boolean inTime = countDownLatch.await(30, TimeUnit.SECONDS);
+            Assert.assertTrue("Not In Time", inTime);
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
@@ -125,12 +117,12 @@ public class WaitMethodsClientServerTest {
     @After
     public void after() {
         try {
-            rosExecutor.stopNodeMain(simpleServer);
+            rosExecutor.stopNodeMain(fibonacciActionLibServer);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(simpleClient);
+            rosExecutor.stopNodeMain(fibonacciActionLibClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -153,8 +145,8 @@ public class WaitMethodsClientServerTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
-        this.simpleClient = null;
-        this.simpleServer = null;
+        this.fibonacciActionLibClient = null;
+        this.fibonacciActionLibServer = null;
         this.rosCore = null;
     }
 
