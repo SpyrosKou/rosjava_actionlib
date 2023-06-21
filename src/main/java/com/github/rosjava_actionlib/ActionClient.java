@@ -60,7 +60,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private static final long PUBLISHER_SHUTDOWN_TIMEOUT_MILLIS = 5000;
     private static final boolean LATCH_MODE = false;
 
-    private final ClientGoalManager<T_ACTION_GOAL> goalManager;
+    private final ClientGoalManager<T_ACTION_GOAL> goalManager = new ClientGoalManager<>(new ActionGoal<>());
+    ;
     private final String actionGoalType;
     private final String actionResultType;
     private final String actionFeedbackType;
@@ -70,12 +71,17 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private Subscriber<T_ACTION_FEEDBACK> serverFeedbackSubscriber = null;
     private Subscriber<GoalStatusArray> serverStatusSubscriber = null;
     private String actionName;
+    private final long ON_CONNECTION_TIMEOUT_MILLIS = 50;
 
 
     private final List<ActionClientResultListener<T_ACTION_RESULT>> callbackResultTargets = new CopyOnWriteArrayList<>();
     private final List<ActionClientFeedbackListener<T_ACTION_FEEDBACK>> callbackFeedbackTargets = new CopyOnWriteArrayList<>();
     private final List<ActionClientStatusListener> callbackStatusTargets = new CopyOnWriteArrayList<>();
 
+    /**
+     * This is set to `true` when all topics are connected for the first time and should never be reset.
+     * It can also be used to determine if the client is running and (seems to be) connected to a server.
+     */
     private final AtomicBoolean hasOnConnectionBeenCalled = new AtomicBoolean(false);
     private final Runnable onConnection;
 
@@ -140,12 +146,13 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *                           message.
      * @param onConnection       A {@link Runnable} that will be called only once, when and if this client has detected a complete connection to the RosActionLib protocol
      */
-    public ActionClient(final ConnectedNode connectedNode
+    public ActionClient(
+            final ConnectedNode connectedNode
             , final String actionName
             , final String actionGoalType
             , final String actionFeedbackType
-            , final String actionResultType,
-                        final Runnable onConnection) {
+            , final String actionResultType
+            , final Runnable onConnection) {
 
         Preconditions.checkArgument(StringUtils.isNotBlank(actionName));
         Preconditions.checkArgument(StringUtils.isNotBlank(actionGoalType));
@@ -160,12 +167,11 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.connectedNode = connectedNode;
         this.topicsToBeConnectedSet = ActionClient.createTopicConnectionSet(actionName);
         this.onConnection = onConnection;
-        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getStatusTopicName(actionName), this::processProcessConnection);
-        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getResultTopicName(actionName), this::processProcessConnection);
-        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getFeedbackTopicName(actionName), this::processProcessConnection);
-        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getGoalTopicName(actionName), this::processProcessConnection);
-        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getCancelTopicName(actionName), this::processProcessConnection);
-        this.goalManager = new ClientGoalManager<>(new ActionGoal<>());
+        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getStatusTopicName(actionName), this::processOnConnection);
+        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getResultTopicName(actionName), this::processOnConnection);
+        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getFeedbackTopicName(actionName), this::processOnConnection);
+        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getGoalTopicName(actionName), this::processOnConnection);
+        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getCancelTopicName(actionName), this::processOnConnection);
         this.connect(connectedNode);
     }
 
@@ -174,7 +180,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *
      * @param topicName
      */
-    private final void processProcessConnection(final String topicName) {
+    private final void processOnConnection(final String topicName) {
         //If the connection Runnable has been called ignore any calls to this function.
         if (!this.hasOnConnectionBeenCalled.get()) {
             Preconditions.checkArgument(StringUtils.isNotBlank(topicName));
@@ -302,6 +308,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         return sendGoal(actionGoalMessage, null);
     }
 
+
     /**
      * Convenience method for retrieving the actionGoalMessage ID of a given action actionGoalMessage message.
      *
@@ -395,28 +402,28 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     }
 
-    private final String getResultTopicName() {
+    final String getResultTopicName() {
         return ActionClient.getResultTopicName(actionName);
     }
 
-    private final String getFeedbackTopicName() {
+    final String getFeedbackTopicName() {
         return ActionClient.getFeedbackTopicName(actionName);
     }
 
-    private final String getStatusTopicName() {
+    final String getStatusTopicName() {
         return ActionClient.getStatusTopicName(actionName);
     }
 
-    private final String getGoalTopicName() {
+    final String getGoalTopicName() {
         return ActionClient.getGoalTopicName(actionName);
     }
 
-    private final String getCancelTopicName() {
+    final String getCancelTopicName() {
         return ActionClient.getCancelTopicName(actionName);
     }
 
 
-    private static final String getResultTopicName(final String actionName) {
+    static final String getResultTopicName(final String actionName) {
         return actionName + "/result";
     }
 
@@ -464,7 +471,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param resultMessage The result resultMessage received. The type of this resultMessage
      *                      depends on the application.
      */
-    private final void gotResult(T_ACTION_RESULT resultMessage) {
+    private final void gotResult(final T_ACTION_RESULT resultMessage) {
         final ActionResult<T_ACTION_RESULT> actionResultMessage = new ActionResult<>(resultMessage);
         final GoalID goalID = actionResultMessage.getGoalStatusMessage().getGoalId();
         if (this.goalManager.getActionGoal().getGoalId().equals(goalID.getId())) {
@@ -667,7 +674,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        boolean result = this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        boolean result = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         return result;
     }
@@ -681,89 +689,107 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @return True if the action server was detected before the timeout and
      * false otherwise.
      */
+    @Deprecated
     public final boolean waitForActionServerToStart(final long timeout, final TimeUnit timeUnit) {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
+        if (this.hasOnConnectionBeenCalled.get()) {
+            return true;
+        } else {
+            final Stopwatch stopwatch = Stopwatch.createStarted();
 
-        boolean result = false;
-        long tests = 0;
-        boolean goalHasSubscribers = false;
-        boolean cancelHasSubscribers = false;
-        boolean feedbackSubscriberFlag = false;
-        boolean resultSubscriberFlag = false;
-        boolean statusSubscriberFlag = false;
-        while (!result && (stopwatch.elapsed(timeUnit) < timeout)) {
-            tests++;
-            final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
-            if (!goalHasSubscribers) {
-                goalHasSubscribers = this.goalPublisher.hasSubscribers();
-            }
-            if (!cancelHasSubscribers) {
-                cancelHasSubscribers = this.cancelPublisher.hasSubscribers();
-            }
-            if (!feedbackSubscriberFlag) {
-                feedbackSubscriberFlag = this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString(), masterStateClient);
-            }
-            if (!resultSubscriberFlag) {
-                resultSubscriberFlag = this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString(), masterStateClient);
-            }
-            if (!statusSubscriberFlag) {
-                statusSubscriberFlag = this.isTopicPublished(this.serverStatusSubscriber.getTopicName().toString(), masterStateClient);
+            boolean result = false;
+            long tests = 0;
+            boolean goalHasSubscribers = false;
+            boolean cancelHasSubscribers = false;
+            boolean feedbackSubscriberFlag = false;
+            boolean resultSubscriberFlag = false;
+            boolean statusSubscriberFlag = false;
+            while (!result && (stopwatch.elapsed(timeUnit) < timeout)) {
+                tests++;
+                final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
+                if (!goalHasSubscribers) {
+                    goalHasSubscribers = this.goalPublisher.hasSubscribers();
+                }
+                if (!cancelHasSubscribers) {
+                    cancelHasSubscribers = this.cancelPublisher.hasSubscribers();
+                }
+                if (!feedbackSubscriberFlag) {
+                    feedbackSubscriberFlag = this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString(), masterStateClient);
+                }
+                if (!resultSubscriberFlag) {
+                    resultSubscriberFlag = this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString(), masterStateClient);
+                }
+                if (!statusSubscriberFlag) {
+                    statusSubscriberFlag = this.isTopicPublished(this.serverStatusSubscriber.getTopicName().toString(), masterStateClient);
+                }
+
+                result = goalHasSubscribers
+                        && cancelHasSubscribers
+                        && (this.statusSubscriberFlagReception || statusSubscriberFlag)
+                        && resultSubscriberFlag
+                        && feedbackSubscriberFlag;
+
+                if (result) {
+                    break;
+                } else {
+                    try {
+
+                        Thread.sleep(ON_CONNECTION_TIMEOUT_MILLIS);
+
+                    } catch (final Exception e) {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(ExceptionUtils.getStackTrace(e));
+                        }
+                    }
+                }
+
             }
 
-            result = goalHasSubscribers
-                    && cancelHasSubscribers
-                    && (this.statusSubscriberFlagReception || statusSubscriberFlag)
-                    && resultSubscriberFlag
-                    && feedbackSubscriberFlag;
+            if (!result) {
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error("[Could not connect to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
+                            + " [goalHasSubscribers:" + goalHasSubscribers
+                            + "] [cancelHasSubscribers:" + cancelHasSubscribers
+                            + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
+                            + "] [resultSubscriberFlag:" + resultSubscriberFlag
+                            + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
+                            + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
 
-            try {
-                Thread.sleep(50);
+                    );
+                }
+            } else {
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("[Connected to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
+                            + " [goalHasSubscribers:" + goalHasSubscribers
+                            + "] [cancelHasSubscribers:" + cancelHasSubscribers
+                            + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
+                            + "] [resultSubscriberFlag:" + resultSubscriberFlag
+                            + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
+                            + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
 
-            } catch (final Exception e) {
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(ExceptionUtils.getStackTrace(e));
+                    );
                 }
             }
-
+            if (!result && LOGGER.isDebugEnabled()) {
+                LOGGER.debug(" [Server Started:" + result + "] [tests:" + tests + "] Goal Topic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "]");
+            }
+            return result;
         }
-
-        if (!result && LOGGER.isErrorEnabled()) {
-
-            LOGGER.error("[Could not connect to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
-                    + " [goalHasSubscribers:" + goalHasSubscribers
-                    + "] [cancelHasSubscribers:" + cancelHasSubscribers
-                    + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
-                    + "] [resultSubscriberFlag:" + resultSubscriberFlag
-                    + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
-                    + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
-
-            );
-
-        }
-        if (!result && LOGGER.isDebugEnabled()) {
-            LOGGER.debug(" [Server Started:" + result + "] [tests:" + tests + "] Goal Topic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "]");
-        }
-        return result;
     }
-
 
     /**
      * @param topicName
      * @return
      */
     private final boolean isTopicPublished(final String topicName, final MasterStateClient masterStateClient) {
-
-        if (topicName != null) {
-            for (final TopicSystemState topicSystemState : masterStateClient.getSystemState().getTopics()) {
-                if (topicSystemState != null
-                        && topicName.equals(topicSystemState.getTopicName())
-                        && topicSystemState.getPublishers() != null
-                        && !topicSystemState.getPublishers().isEmpty()) {
-                    return true;
-
-                }
+        for (final TopicSystemState topicSystemState : masterStateClient.getSystemState().getTopics()) {
+            if (topicSystemState != null
+                    && topicName.equals(topicSystemState.getTopicName())
+                    && topicSystemState.getPublishers() != null
+                    && !topicSystemState.getPublishers().isEmpty()) {
+                return true;
 
             }
+
         }
         return false;
     }
