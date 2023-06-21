@@ -37,8 +37,8 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     private static final String ROS_MASTER_URI = testProperties.getRosMasterUri();
     private RosCore rosCore = null;
 
-    private ActionLibClientFeedback actionLibClientFeedback = null;
-    private ActionLibServerFeedback actionLibServerFeedback = null;
+    private ActionLibClientFeedbackListener actionLibClientFeedbackListener = null;
+    private ActionLibServerFeedbackListener actionLibServerFeedbackListener = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
     @Before
@@ -47,13 +47,13 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
             this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            this.actionLibServerFeedback = new ActionLibServerFeedback();
+            this.actionLibServerFeedbackListener = new ActionLibServerFeedbackListener();
 
-            this.actionLibClientFeedback = new ActionLibClientFeedback();
+            this.actionLibClientFeedbackListener = new ActionLibClientFeedbackListener();
 
-            this.rosExecutor.startNodeMain(actionLibServerFeedback, actionLibServerFeedback.getDefaultNodeName().toString(),  ROS_MASTER_URI);
-            this.rosExecutor.startNodeMain(actionLibClientFeedback, actionLibClientFeedback.getDefaultNodeName().toString(),  ROS_MASTER_URI);
-            this.actionLibClientFeedback.waitForStart();
+            this.rosExecutor.startNodeMain(actionLibServerFeedbackListener, actionLibServerFeedbackListener.getDefaultNodeName().toString(),  ROS_MASTER_URI);
+            this.rosExecutor.startNodeMain(actionLibClientFeedbackListener, actionLibClientFeedbackListener.getDefaultNodeName().toString(),  ROS_MASTER_URI);
+            this.actionLibClientFeedbackListener.waitForStart();
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
@@ -71,7 +71,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
                 LOGGER.trace("Starting Tasks");
 
-                actionLibClientFeedback.getFibonnaciBlocking(10);
+                actionLibClientFeedbackListener.getFibonnaciBlocking(10);
                 LOGGER.trace("Falling asleep");
 
                 try {
@@ -97,7 +97,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
             LOGGER.trace("Starting Tasks");
 
-            actionLibClientFeedback.getFibonnaciBlockingWithCancelation(10);
+            actionLibClientFeedbackListener.getFibonnaciBlockingWithCancelation(10);
             LOGGER.trace("Falling asleep");
 
             try {
@@ -118,12 +118,12 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     @After
     public void after() {
         try {
-            rosExecutor.stopNodeMain(actionLibServerFeedback);
+            rosExecutor.stopNodeMain(actionLibServerFeedbackListener);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(actionLibClientFeedback);
+            rosExecutor.stopNodeMain(actionLibClientFeedbackListener);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -143,8 +143,8 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
-        this.actionLibClientFeedback = null;
-        this.actionLibServerFeedback = null;
+        this.actionLibClientFeedbackListener = null;
+        this.actionLibServerFeedbackListener = null;
         this.rosCore = null;
     }
 
