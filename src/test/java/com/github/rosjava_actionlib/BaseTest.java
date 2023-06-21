@@ -58,7 +58,7 @@ abstract class BaseTest {
         try {
             this.rosMasterUriPort = AvailablePortFinder.getNextAvailable();
             this.rosExecutor = new RosExecutor(ROS_HOST_IP);
-            this.rosCore = RosCore.newPublic(rosMasterUriPort);
+            this.rosCore = RosCore.newPrivate(rosMasterUriPort);
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
             final Optional<String> rosMasterUri = this.getRosMasterUri();
