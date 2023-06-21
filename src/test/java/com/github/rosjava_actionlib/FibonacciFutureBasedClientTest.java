@@ -29,10 +29,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -73,7 +71,7 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
      * Also demonstrates status of Client by printing client status when it changes
      */
     @Test
-    public void testFutureBasedClientWithStatuses() {
+    public void testFutureBasedClient() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         try {
 
@@ -94,24 +92,7 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
         }
     }
 
-    /**
-     * Demonstrate future based client usage
-     */
-    @Test
-    public void testFutureBasedClient() {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        try {
-            final boolean connectionToServerOk = this.futureBasedClient.waitForServerConnection( this.timeout-stopwatch.elapsed(this.timeUnit) , timeUnit);
-            Assert.assertTrue("Server Not Started. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, connectionToServerOk);
-            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(TEST_INPUT);
 
-            final FibonacciActionResult result = resultFuture.get( this.timeout-stopwatch.elapsed(this.timeUnit) , timeUnit);
-            Assert.assertNotNull("Result was null."+" Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, result);
-        } catch (final Exception exception) {
-            LOGGER.error(ExceptionUtils.getStackTrace(exception)+" Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout);
-            Assert.fail(ExceptionUtils.getStackTrace(exception)+" Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout);
-        }
-    }
 
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
