@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * @author Ernesto Corbellini ecorbellini@ekumenlabs.com
  * @author Spyros Koukas
  */
-class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
+class ActionLibClientFeedbackListener extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     static {
         // comment this line if you want logs activated
         System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
@@ -149,7 +149,7 @@ class ActionLibClientFeedback extends AbstractNodeMain implements ActionClientLi
 
     @Override
     public void onStart(ConnectedNode node) {
-        actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, ActionLibServerFeedback.DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+        actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, ActionLibServerFeedbackListener.DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
 //       Log log = node.getLog();
         this.isStarted = true;
         actionClient.addListener(this);

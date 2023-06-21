@@ -19,7 +19,6 @@ import actionlib_msgs.GoalID;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -36,9 +35,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author Spyros Koukas
  */
-class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
+class ActionLibServerFeedbackListener extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
     static final String GRAPH_NAME = "fibonacci_test_server";
-
+    private final FibonacciCalculator fibonacciCalculator=new FibonacciCalculator();
     static {
         // comment this line if you want logs activated
         System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
@@ -47,27 +46,10 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
     public static final String DEFAULT_ACTION_NAME = "/fibonacci";
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionServer = null;
-    private volatile boolean isStarted = false;
     private static final long SLEEP_MILLIS = 100;
     private final ConcurrentHashMap<String, CompletableFuture<FibonacciActionGoal>> goals = new ConcurrentHashMap<>();
 
 
-    /**
-     * Getter for isStarted
-     *
-     * @return isStarted
-     **/
-    public void waitForStart() {
-        while (!this.isStarted) {
-            try {
-                Thread.sleep(5);
-            } catch (final InterruptedException ie) {
-                LOGGER.error(ExceptionUtils.getStackTrace(ie));
-            } catch (final Exception e) {
-                LOGGER.error(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(e));
-            }
-        }
-    }
 
     @Override
     public GraphName getDefaultNodeName() {
@@ -78,8 +60,7 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
     public void onStart(final ConnectedNode node) {
 
 
-        this.actionServer = new ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node,this, DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
-        this.isStarted = true;
+        this.actionServer = new ActionServer<>(node, this, DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
 
     }
 
@@ -137,7 +118,7 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
             final int limit = Math.max(0, order - 1);
             for (int i = 0; i < limit; i++) {
                 final FibonacciActionFeedback feedback = actionServer.newFeedbackMessage();
-                feedback.getFeedback().setSequence(fibonacciSequence(i));
+                feedback.getFeedback().setSequence(fibonacciCalculator.fibonacciSequence(i));
                 actionServer.sendFeedback(feedback);
                 sleep(SLEEP_MILLIS);
             }
@@ -148,7 +129,7 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
 
             final FibonacciActionResult result = actionServer.newResultMessage();
 
-            result.getResult().setSequence(fibonacciSequence(order));
+            result.getResult().setSequence(fibonacciCalculator.fibonacciSequence(order));
 
             actionServer.setSucceed(id);
             actionServer.setGoalStatus(result.getStatus(), id);
@@ -198,18 +179,6 @@ class ActionLibServerFeedback extends AbstractNodeMain implements ActionServerLi
     }
 
 
-    private int[] fibonacciSequence(int order) {
-        int i;
-        int[] fib = new int[order + 2];
-
-        fib[0] = 0;
-        fib[1] = 1;
-
-        for (i = 2; i < (order + 2); i++) {
-            fib[i] = fib[i - 1] + fib[i - 2];
-        }
-        return fib;
-    }
 
 
 }
