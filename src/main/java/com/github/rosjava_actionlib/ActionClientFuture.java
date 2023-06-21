@@ -58,7 +58,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     static final <T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message>
     ActionFuture<T_GOAL, T_FEEDBACK, T_RESULT>
-    createFromGoal(ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient, T_GOAL goal) {
+    createFromGoal(final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient,final  T_GOAL goal) {
         final GoalID goalId = actionClient.getGoalId(goal);
         final ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT> result = new ActionClientFuture<>(actionClient, goalId);
         if (LOGGER.isWarnEnabled() && actionClient.isActive()) {
