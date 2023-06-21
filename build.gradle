@@ -64,6 +64,7 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     testImplementation 'org.ros.rosjava_messages:actionlib_tutorials:0.1.10'
     testImplementation 'org.ros.rosjava_messages:turtle_actionlib:0.1.10'
+    testImplementation 'org.apache.camel:camel-test:3.20.6'
 
 }
 
