@@ -50,7 +50,14 @@ abstract class TopicParticipantListener {
 
     final void callOnceOnConnection() {
         if (this.hasCallOnceBeenCalled.compareAndSet(false, true)) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Calling once on connection for 1st time." + this.toString());
+            }
             this.callOnceOnConnection.accept(this.topicName);
+        } else {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Do nothing. Already called." + this.toString());
+            }
         }
     }
 
@@ -84,7 +91,11 @@ abstract class TopicParticipantListener {
                 }
             }
         }
-        return this.isRegistered();
+        final boolean result = this.isRegistered();
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+        }
+        return result;
     }
 
     /**
@@ -104,7 +115,11 @@ abstract class TopicParticipantListener {
                 }
             }
         }
-        return this.isRegistered();
+        final boolean result = this.isRegistered();
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+        }
+        return result;
     }
 
 
@@ -144,10 +159,16 @@ abstract class TopicParticipantListener {
         }
     }
 
+
     @Override
     public String toString() {
-        return "isRegistered:" + this.isRegistered();
+        return "TopicParticipantListener{" +
+                "isRegistered=" + isRegistered +
+                ", hasCallOnceBeenCalled=" + hasCallOnceBeenCalled +
+                ", connectedNode=" + connectedNode +
+                ", registrationCountDownLatch=" + registrationCountDownLatch +
+                ", topicName='" + topicName + '\'' +
+                ", callOnceOnConnection=" + callOnceOnConnection +
+                '}';
     }
-
-
 }
