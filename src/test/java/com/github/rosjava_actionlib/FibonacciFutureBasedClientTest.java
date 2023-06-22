@@ -87,7 +87,7 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
             Assert.assertNotNull("Null Result", result);
 
             Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TEST_CORRECT_OUTPUT));
-            ;
+
 
         } catch (final Exception exception) {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
@@ -104,6 +104,33 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
         this.futureBasedClient.getActionClient().addListener(resultListener);
         final ActionFuture<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> resultFuture= this.futureBasedClient.invoke(TEST_INPUT);
         try {
+            final boolean resultReceivedOK=resultReceived.await(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
+            Assert.assertTrue("Result OK",resultReceivedOK);
+            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
+
+            final FibonacciActionResult fibonacciActionResult=resultFuture.get(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
+            Assert.assertTrue("Result OK",Arrays.equals(fibonacciActionResult.getResult().getSequence(), TEST_CORRECT_OUTPUT));
+            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+
+    }
+
+
+
+
+
+    @Test
+    public void testCancel() {
+        final Stopwatch stopwatch=Stopwatch.createStarted();
+        final CountDownLatch resultReceived = new CountDownLatch(1);
+
+        final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
+        this.futureBasedClient.getActionClient().addListener(resultListener);
+        final ActionFuture<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> resultFuture= this.futureBasedClient.invoke(TEST_INPUT);
+        try {
+            resultFuture.cancel(true);
             final boolean resultReceivedOK=resultReceived.await(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
             Assert.assertTrue("Result OK",resultReceivedOK);
             Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
