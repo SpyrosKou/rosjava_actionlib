@@ -80,6 +80,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
         this.goalid = goalID;
     }
 
+
     /**
      * @return
      */
@@ -97,12 +98,13 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
     }
 
     /**
-     * @param bln is currently ignored
+     * @param mayInterruptIfRunning is currently ignored
      *
-     * @return always returns true
+     * @return returns true if cancel was send, false if not send
      */
     @Override
-    public final boolean cancel(final boolean bln) {
+    public final boolean cancel(final boolean mayInterruptIfRunning) {
+
         this.actionClient.sendCancel(this.goalid);
         this.goalManager.cancelGoal();
         return true;
