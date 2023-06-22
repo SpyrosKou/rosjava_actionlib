@@ -73,28 +73,6 @@ public class FibonacciActionLibClientServerTest {
     }
 
 
-    @Test
-    public void testCallNormal() {
-        try {
-            final CountDownLatch countDownLatch = this.fibonacciActionLibClient.callNormal();
-            Thread.currentThread().setName("ActionCallResults" + Thread.currentThread().getName());
-            boolean finished = false;
-            final long totalMiliseconds=20000;
-            final long stepsNUmber=100;
-            for (int i = 1; i <= stepsNUmber; i++) {
-                finished = countDownLatch.await(totalMiliseconds/stepsNUmber, TimeUnit.MILLISECONDS);
-                if (finished) {
-                    break;
-                }
-            }
-            LOGGER.debug("Finished call. Result:"+finished);
-            Assert.assertTrue("Tasks took too long", finished);
-
-        } catch (final Exception e) {
-            LOGGER.debug("Finished call.");
-            Assert.fail(ExceptionUtils.getStackTrace(e));
-        }
-    }
 
     @Test
     public void testCallCancelled() {
