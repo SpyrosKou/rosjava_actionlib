@@ -24,6 +24,7 @@ import org.ros.message.Duration;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.ros.node.RosLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import turtle_actionlib.*;
@@ -63,7 +64,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
 
     private volatile boolean isStarted = false;
 
-    private Log log;
+    private RosLog log;
 
     @Override
     public GraphName getDefaultNodeName() {

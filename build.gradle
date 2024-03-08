@@ -2,10 +2,9 @@ plugins {
     id 'maven-publish'
     id 'java-library'
     id 'idea'
-    id 'java'
 }
 group 'com.github.rosjava'
-version = '2023.06.14.02'
+version = '2024.03.08.01'
 description = 'A pure java version of actionlib'
 sourceCompatibility = JavaVersion.VERSION_17
 
@@ -13,10 +12,11 @@ repositories {
     repositories {
         mavenLocal()
         mavenCentral()
-        jcenter()
         maven {
-            url "https://github.com/rosjava/rosjava_mvn_repo/raw/master"
+            url "https://github.com/SpyrosKou/rosjava_mvn_repo/raw/noetic"
+            name "GithubSpyrosKouRepository"
         }
+
     }
     mavenCentral()
 }
@@ -24,15 +24,15 @@ repositories {
 
 dependencies {
 
-    implementation group: 'org.ros.rosjava_bootstrap', name: 'message_generation', version: '0.3.3'
-    implementation 'org.ros.rosjava_core:rosjava:[0.3,0.4)'
+    implementation group: 'org.ros.rosjava_bootstrap', name: 'message_generation', version: '0.3.8'
+    implementation 'org.ros.rosjava_core:rosjava:0.3.8'
 
-    api 'org.ros.rosjava_messages:actionlib_msgs:1.12.5'
-    api 'org.ros.rosjava_messages:actionlib:1.11.5'
-    api 'org.ros.rosjava_messages:std_msgs:0.5.10'
+    api 'org.ros.rosjava_messages:actionlib_msgs:1.13.0'
+    api 'org.ros.rosjava_messages:actionlib:1.13.2'
+    api 'org.ros.rosjava_messages:std_msgs:0.5.13'
 
 
-    implementation 'com.google.guava:guava:31.1-jre'
+    implementation 'com.google.guava:guava:33.0.0-jre'
     api 'org.slf4j:slf4j-api:1.7.25'
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
     implementation 'org.apache.commons:commons-lang3:3.12.0'
@@ -40,12 +40,34 @@ dependencies {
     implementation 'org.apache.commons:commons-configuration2:2.8.0'
 
 
-    testImplementation 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.ros.rosjava_messages:actionlib_tutorials:0.1.10'
     testImplementation 'org.ros.rosjava_messages:turtle_actionlib:0.1.10'
 
 }
 
+
+publishing {
+    final repositoryDirectory = "ROS_MAVEN_DEPLOYMENT_REPOSITORY"
+    final mavenDeploymentRepositoryProvider = providers.gradleProperty(repositoryDirectory)
+    final mavenDeploymentRepository  = mavenDeploymentRepositoryProvider.getOrElse(null)
+
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
+    if (mavenDeploymentRepository!=null) {
+        repositories {
+            maven {
+                name "GithubRepositoryLocation"
+                url 'file:////' + mavenDeploymentRepository
+            }
+        }
+    } else {
+        logger.debug(repositoryDirectory + "not found")
+    }
+}
 
 jar {
     manifest {

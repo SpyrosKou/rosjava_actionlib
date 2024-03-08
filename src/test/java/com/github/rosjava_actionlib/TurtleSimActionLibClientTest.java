@@ -56,6 +56,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
+
             Assume.assumeNoException(er3);
         }
 
@@ -137,7 +138,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     public void after() {
 
         try {
-            rosExecutor.stopNodeMain(testClient);
+            this.rosExecutor.stopNodeMain(testClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
