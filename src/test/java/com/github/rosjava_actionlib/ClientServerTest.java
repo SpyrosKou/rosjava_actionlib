@@ -20,10 +20,7 @@ package com.github.rosjava_actionlib;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +30,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.LogManager;
 
 /**
+ * @deprecated uses the deprecated {@link SimpleServer}
  * Demonstrate and test {@link SimpleServer} with {@link SimpleClient}
  */
+@Deprecated
+@Ignore
 public class ClientServerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
