@@ -437,7 +437,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
 
     /**
-     * Checks if the server is started
+     * Checks if the server is started at the time of the method call.
      * @return
      */
     public final boolean isActionServerStarted() {
