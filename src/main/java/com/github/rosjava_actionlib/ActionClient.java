@@ -208,9 +208,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * Convenience method for retrieving the goal ID of a given action goal message.
      *
      * @param goal The action goal message from where to obtain the goal ID.
-     *
      * @return Goal ID object containing the ID of the action message.
-     *
      * @see actionlib_msgs.GoalID
      */
     public final GoalID getGoalId(final T_ACTION_GOAL goal) {
@@ -224,7 +222,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *
      * @param goal The action goal message to set the goal ID for.
      * @param gid  The goal ID object.
-     *
      * @see actionlib_msgs.GoalID
      */
     public final void setGoalId(final T_ACTION_GOAL goal, final GoalID gid) {
@@ -236,7 +233,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * specified goal.
      *
      * @param id The GoalID message identifying the goal to cancel.
-     *
      * @see actionlib_msgs.GoalID
      */
     public final void sendCancel(final GoalID id) {
@@ -353,7 +349,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * Called whenever we get a message in the status topic.
      *
      * @param message The GoalStatusArray message received.
-     *
      * @see actionlib_msgs.GoalStatusArray
      */
     private final void gotStatus(final GoalStatusArray message) {
@@ -387,7 +382,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *
      * @param statusMessage The message with the goal status array
      *                      (actionlib_msgs.GoalStatusArray)
-     *
      * @return The goal status message for the goal we want or null if we didn't
      * find it.
      */
@@ -441,13 +435,28 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         subscribeToServer(node);
     }
 
+
+    /**
+     * Checks if the server is started
+     * @return
+     */
+    public final boolean isActionServerStarted() {
+        final boolean result= this.statusSubscriberFlag
+                && this.goalPublisher.hasSubscribers()
+                && this.cancelPublisher.hasSubscribers()
+                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString())
+                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
+                  this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString());
+
+        return result;
+    }
+
     /**
      * Wait for an actionlib server to connect.
      *
      * @param timeout The maximum amount of time to wait for an action server. If
      *                this value is less than or equal to zero, it will wait forever until a
      *                server is detected.
-     *
      * @return True if the action server was detected before the timeout and
      * false otherwise.
      */
@@ -525,7 +534,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     /**
      * @param topicName
-     *
      * @return
      */
     private final boolean isTopicPublished(final String topicName) {
