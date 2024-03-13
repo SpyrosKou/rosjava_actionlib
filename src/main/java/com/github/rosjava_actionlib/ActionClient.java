@@ -22,6 +22,8 @@ import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
@@ -684,15 +686,17 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     /**
      * Checks if the server is started at the time of the method call.
+     * This method involves network interaction
      * @return
      */
     public final boolean isActionServerStarted() {
-        final boolean result= this.statusSubscriberFlag
+        final Supplier<MasterStateClient> masterStateClientSupplier= Suppliers.memoize(()->new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri()));
+        final boolean result= this.statusSubscriberFlagReception
                 && this.goalPublisher.hasSubscribers()
                 && this.cancelPublisher.hasSubscribers()
-                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString())
-                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
-                  this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString());
+                && this.isTopicPublished(this.getFeedbackTopicName(),masterStateClientSupplier.get())
+//                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
+                 && this.isTopicPublished(this.getResultTopicName(),masterStateClientSupplier.get());
 
         return result;
     }
