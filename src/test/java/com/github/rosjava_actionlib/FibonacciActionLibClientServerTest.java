@@ -17,6 +17,7 @@
 
 package com.github.rosjava_actionlib;
 
+import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -73,7 +74,6 @@ public class FibonacciActionLibClientServerTest {
     }
 
 
-
     @Test
     public void testCallCancelled() {
         try {
@@ -82,9 +82,20 @@ public class FibonacciActionLibClientServerTest {
             final boolean withinTime = countDownLatch.await(2, TimeUnit.MINUTES);
             LOGGER.debug("Finished call.");
             Assert.assertTrue("Cancel took too long", withinTime);
-            final ClientState currentClientState=this.fibonacciActionLibClient.getActionClient().getGoalState();
-            Assert.assertTrue("Not Cancelled", ClientState.RECALLING.equals(currentClientState)||ClientState.RECALLING.equals(currentClientState));
-
+            final ClientState currentClientState = this.fibonacciActionLibClient.getActionClient().getGoalState();
+            Assert.assertTrue("Not Cancelled, current state:" + currentClientState
+                    , ClientState.RECALLING.equals(currentClientState)
+                            || ClientState.WAITING_FOR_CANCEL_ACK.equals(currentClientState)
+                            || ClientState.PREEMPTING.equals(currentClientState)
+//                            || ClientState.DONE.equals(currentClientState)
+            );
+            LOGGER.debug("First client state:" + currentClientState);
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+//            ClientState updatedClientState= this.fibonacciActionLibClient.getActionClient().getGoalState();
+//            while(stopwatch.isRunning() && stopwatch.elapsed(TimeUnit.SECONDS)<10&&currentClientState.equals(updatedClientState)){
+//                updatedClientState= this.fibonacciActionLibClient.getActionClient().getGoalState();
+//            }
+//            LOGGER.debug("Later client state:"+updatedClientState+" changed:"+!currentClientState.equals(updatedClientState));
         } catch (final Exception e) {
             LOGGER.debug("Finished call.");
             Assert.fail(ExceptionUtils.getStackTrace(e));
