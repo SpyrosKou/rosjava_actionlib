@@ -22,6 +22,7 @@ import com.google.common.base.Stopwatch;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
+import org.ros.node.RosLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import turtle_actionlib.*;
@@ -62,6 +63,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
 
     private volatile boolean isStarted = false;
 
+    private RosLog log;
 
 
     @Override
@@ -139,7 +141,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
         this.shapeActionClient = new ActionClient<>(node, "/turtle_shape", ShapeActionGoal._TYPE, ShapeActionFeedback._TYPE, ShapeActionResult._TYPE);
         final ShapeHandler shapeHandler = new ShapeHandler();
         this.shapeActionClient.addListener(shapeHandler);
-
+        log = node.getLog();
         //TODO synchronous start method implement.
         this.isStarted = true;
         LOGGER.trace("Started");

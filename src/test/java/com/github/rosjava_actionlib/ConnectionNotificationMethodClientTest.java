@@ -31,8 +31,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
+ *
  * Test wait methods with {@link FibonacciActionLibServer} with {@link FibonacciActionLibClient}
  */
+
 public class ConnectionNotificationMethodClientTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

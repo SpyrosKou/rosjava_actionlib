@@ -27,6 +27,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
+import org.ros.message.Duration;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
@@ -567,7 +568,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                     final List<GoalStatus> goalStatuses = statusList.stream().filter(goalStatusParam -> goalStatusParam.getGoalId().getId().equals(idToFind)).toList();
                     final int goalStatusesSize = goalStatuses.size();
                     if (LOGGER.isInfoEnabled() && !statusList.isEmpty()) {
-                        LOGGER.info("Found [" + goalStatuses.size() + "] statuses for goal ID: " + idToFind + " action:[" + actionName + "]");
+                        LOGGER.info("Found [" + goalStatusesSize + "] statuses for goal ID: " + idToFind + " action:[" + actionName + "]");
 
                     }
                     if (goalStatusesSize > 0) {
@@ -677,6 +678,22 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         boolean result = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        return result;
+    }
+
+
+    /**
+     * Checks if the server is started at the time of the method call.
+     * @return
+     */
+    public final boolean isActionServerStarted() {
+        final boolean result= this.statusSubscriberFlag
+                && this.goalPublisher.hasSubscribers()
+                && this.cancelPublisher.hasSubscribers()
+                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString())
+                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
+                  this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString());
+
         return result;
     }
 

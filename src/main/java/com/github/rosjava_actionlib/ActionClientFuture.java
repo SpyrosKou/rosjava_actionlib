@@ -53,7 +53,6 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      * @param <T_GOAL>
      * @param <T_FEEDBACK>
      * @param <T_RESULT>
-     *
      * @return
      */
     static final <T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message>
@@ -132,16 +131,15 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
 
     /**
      * @return
-     *
      * @throws InterruptedException
      * @throws ExecutionException
      */
     @Override
     public final T_RESULT get() throws InterruptedException, ExecutionException {
-        while (goalManager.getStateMachine().isRunning()) {
+        while (!this.isDone()) {
             Thread.sleep(100);
         }
-        disconnect();
+        this.disconnect();
         return result;
     }
 
@@ -149,7 +147,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
     public final T_RESULT get(final long timeout, final TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (goalManager.getStateMachine().isRunning()) {
+        while (!this.isDone()) {
             if (stopwatch.elapsed(timeUnit) > timeout) {
                 throw new TimeoutException();
             }

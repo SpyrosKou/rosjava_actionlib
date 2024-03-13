@@ -114,7 +114,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         this.actionGoalType = actionGoalType;
         this.actionFeedbackType = actionFeedbackType;
         this.actionResultType = actionResultType;
-        this.messageFactory = connectedNode.getTopicMessageFactory();
+        this.messageFactory = connectedNode.getDefaultMessageFactory();
         this.connect(connectedNode);
     }
 

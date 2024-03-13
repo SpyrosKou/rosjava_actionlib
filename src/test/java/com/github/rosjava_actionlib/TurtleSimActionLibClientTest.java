@@ -55,6 +55,7 @@ public class TurtleSimActionLibClientTest {
 
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
+
             Assume.assumeNoException(er3);
         }
 
@@ -132,7 +133,7 @@ public class TurtleSimActionLibClientTest {
     public void after() {
 
         try {
-            rosExecutor.stopNodeMain(testClient);
+            this.rosExecutor.stopNodeMain(testClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }

@@ -58,6 +58,13 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
 
     /**
      *
+     * @return true if the node is started now
+     */
+    public final boolean isStarted(){
+        return this.isStarted;
+    }
+    /**
+     *
      * @return isStarted
      **/
     public void waitForStart() {
