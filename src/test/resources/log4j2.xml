@@ -14,20 +14,23 @@
         </Root>
 
 
-        <Logger name="org.apache" level="DEBUG"/>
-        <Logger name="org.ros" level="DEBUG"/>
-        <Logger name="org.apache.http.impl.conn.Wire" level="TRACE"/>
+        <Logger name="org.apache" level="ERROR"/>
+        <Logger name="org.ros" level="ERROR"/>
 
+
+        <Logger name="javax.transaction.TransactionManager" level="ERROR"/>
+        <Logger name="org.apache" level="ERROR"/>
+        <Logger name="org.apache.logging.log4j2" level="ERROR"/>
+        <Logger name="org.apache.http.impl.conn.Wire" level="ERROR"/>
         <Logger name="httpclient.wire.header" level="ERROR"/>
         <Logger name="httpclient.wire.content" level="ERROR"/>
-        <!--<Logger name="com.github.rosjava_actionlib" level="TRACE"/>
 
-     <Logger name="com.github.rosjava_actionlib.ActionClient" level="DEBUG"/>
-     <Logger name="com.github.rosjava_actionlib.FibonacciFutureBasedClientTestlientTest" level="TRACE"/>
-     <Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="DEBUG"/>-->
-        <Logger name="org.apache.commons.httpclient" level="ERROR"/>
-        <Logger name="org.apache.commons.httpclient.Wire" level="ERROR"/>
+        <Logger name="com.github.rosjava_actionlib" level="TRACE"/>
 
+
+        <!--<Logger name="com.github.rosjava_actionlib.ActionClient" level="DEBUG"/>
+        <Logger name="com.github.rosjava_actionlib.FibonacciFutureBasedClientTestlientTest" level="TRACE"/>
+        <Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="DEBUG"/>-->
 
     </Loggers>
 </Configuration>
