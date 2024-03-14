@@ -21,6 +21,7 @@ import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.*;
 import com.google.common.base.Stopwatch;
+import com.google.common.util.concurrent.Runnables;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
@@ -30,6 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,6 +44,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 final class FutureBasedClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final int MAX_PRINT_SEQUENCE_ELEMENTS = 100;
+
+    final ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getActionClient() {
+        return this.actionClient;
+    }
+
     private ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionClient = null;
 
 
@@ -97,7 +106,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
 
     @Override
     public final void onStart(final ConnectedNode connectedNode) {
-        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE,this::getOnConnection);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
         this.connectionCountDownLatch.countDown();
@@ -108,15 +117,25 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
      */
     @Override
     public final void resultReceived(final FibonacciActionResult message) {
-        final FibonacciResult result = message.getResult();
-        int[] sequence = result.getSequence();
-        int i;
+
+        if(LOGGER.isInfoEnabled()){
+            LOGGER.info("Result Received, size:"+message.getResult().getSequence().length);
+        }
+        if (LOGGER.isTraceEnabled()) {
+
+            final FibonacciResult result = message.getResult();
+            int[] sequence = result.getSequence();
+            final StringJoiner stringJoiner = new StringJoiner(",", "Finonacci sequence:{", "}");
+            for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
+                stringJoiner.add(sequence[i] + " ");
+            }
+            if(sequence.length> MAX_PRINT_SEQUENCE_ELEMENTS){
+                stringJoiner.add("Showing only first 100 elements");
+            }
+            LOGGER.trace(stringJoiner.toString());
+        }
 
 
-        LOGGER.trace("Got Fibonacci result sequence: ");
-        for (i = 0; i < sequence.length; i++)
-            LOGGER.trace(Integer.toString(sequence[i]) + " ");
-        LOGGER.trace("");
     }
 
     /**
@@ -124,14 +143,21 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
      */
     @Override
     public final void feedbackReceived(final FibonacciActionFeedback message) {
-        final FibonacciFeedback result = message.getFeedback();
-        int[] sequence = result.getSequence();
-        int i;
-
-        LOGGER.trace("Feedback from Fibonacci server: ");
-        for (i = 0; i < sequence.length; i++)
-            LOGGER.trace(Integer.toString(sequence[i]) + " ");
-        LOGGER.trace("\n");
+        if(LOGGER.isInfoEnabled()){
+            LOGGER.info("Result Received, size:"+message.getFeedback().getSequence().length);
+        }
+        if (LOGGER.isTraceEnabled()) {
+            final FibonacciFeedback messageFeedback = message.getFeedback();
+            int[] sequence = messageFeedback.getSequence();
+            final StringJoiner stringJoiner = new StringJoiner(",", "Feedback Fibonacci sequence:{", "}");
+            for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
+                stringJoiner.add(sequence[i] + " ");
+            }
+            if(sequence.length> MAX_PRINT_SEQUENCE_ELEMENTS){
+                stringJoiner.add("Showing only first 100 elements");
+            }
+            LOGGER.trace(stringJoiner.toString());
+        }
     }
 
     /**
@@ -147,19 +173,12 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
 
         }
     }
-
-
-    /**
-     * @param msec
-     */
-    private final void sleep(final long msec) {
-        try {
-            Thread.sleep(msec);
-        } catch (InterruptedException ex) {
-        }
+    public final void setOnConnection(final Runnable onConnection) {
+        Objects.requireNonNull(onConnection);
+        this.onConnection = onConnection;
     }
-
-    final ActionClient<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> getActionClient() {
-        return this.actionClient;
+    private final Runnable getOnConnection(){
+        return this.onConnection;
     }
+    private Runnable onConnection = Runnables::doNothing;
 }
