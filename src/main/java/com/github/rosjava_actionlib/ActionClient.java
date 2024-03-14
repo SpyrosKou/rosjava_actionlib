@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.util.concurrent.Runnables;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
@@ -131,7 +132,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             , final String actionGoalType
             , final String actionFeedbackType
             , final String actionResultType) {
-        this(connectedNode, actionName, actionGoalType, actionFeedbackType, actionResultType, ActionClient::doNothing);
+        this(connectedNode, actionName, actionGoalType, actionFeedbackType, actionResultType, Runnables::doNothing);
     }
 
     /**
@@ -203,13 +204,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         }
     }
 
-    /**
-     * Does nothing
-     */
-    private static final void doNothing() {
-    }
 
-    ;
 
     /**
      * @param target the listener to add
