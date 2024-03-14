@@ -45,7 +45,7 @@ public class ConnectionNotificationMethodClientTest {
 
     private RosCore rosCore = null;
 
-    private FibonacciActionLibClient fibonacciActionLibClient = null;
+    private FutureBasedClient futureBasedClient = null;
 
     private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
@@ -58,7 +58,7 @@ public class ConnectionNotificationMethodClientTest {
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
 
-            this.fibonacciActionLibClient = new FibonacciActionLibClient();
+            this.futureBasedClient = new FutureBasedClient();
 
             this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
             this.fibonacciActionLibServer.waitForStart();
@@ -83,9 +83,9 @@ public class ConnectionNotificationMethodClientTest {
             final long timeoutMillis = 30_000;
 
             final CountDownLatch countDownLatch = new CountDownLatch(1);
-            this.fibonacciActionLibClient.setOnConnection(() -> countDownLatch.countDown());
+            this.futureBasedClient.setOnConnection(() -> countDownLatch.countDown());
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
-            this.rosExecutor.startNodeMain(this.fibonacciActionLibClient, this.fibonacciActionLibClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
 
             final boolean clientStarted = countDownLatch.await(timeoutMillis, TimeUnit.MILLISECONDS);
             LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
@@ -107,7 +107,7 @@ public class ConnectionNotificationMethodClientTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(fibonacciActionLibClient);
+            rosExecutor.stopNodeMain(futureBasedClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -130,7 +130,7 @@ public class ConnectionNotificationMethodClientTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
-        this.fibonacciActionLibClient = null;
+        this.futureBasedClient = null;
         this.fibonacciActionLibServer = null;
         this.rosCore = null;
     }
