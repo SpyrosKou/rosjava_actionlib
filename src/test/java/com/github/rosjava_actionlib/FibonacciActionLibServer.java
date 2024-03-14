@@ -18,6 +18,7 @@ package com.github.rosjava_actionlib;
 
 
 import actionlib_msgs.GoalID;
+import actionlib_msgs.GoalStatus;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
@@ -29,17 +30,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Ernesto Corbellini ecorbellini@ekumenlabs.com
  * @author Spyros Koukas
- * @deprecated see {@link FutureBasedClient} which utilizes the {@link ActionFuture}
+ * <p>
  * Class to test the actionlib server.
  * This is a simple server with the ability to process only a single goal.
  */
-@Deprecated
 final class FibonacciActionLibServer extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionServer = null;
@@ -47,6 +49,7 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     private final FibonacciCalculator fibonacciCalculator = new FibonacciCalculator();
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final CountDownLatch startCountDownLatch = new CountDownLatch(1);
+    private final Set<String> cancelledGoalIds = new ConcurrentSkipListSet<>();
 
     @Override
     public final GraphName getDefaultNodeName() {
@@ -90,11 +93,18 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
             LOGGER.trace("Renaming Thread" + Thread.currentThread().getName());
             Thread.currentThread().setName("GoalReceived " + Thread.currentThread().getName());
         }
-        final int[] output = fibonacciCalculator.fibonacciSequence(input);
+        final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goal), () -> result.getStatus().setStatus(GoalStatus.ABORTED));
         result.getResult().setSequence(output);
+
         this.actionServer.sendResult(result);
+        if (this.shouldCancelGoal(goal)) {
+            this.cancelledGoalIds.remove(goal.getGoalId().getId());
+        }
     }
 
+    private final boolean shouldCancelGoal(final FibonacciActionGoal goal) {
+        return this.cancelledGoalIds.contains(goal.getGoalId().getId());
+    }
 
     private static final void copyGoal(final GoalID from, final GoalID to) {
         to.setId(from.getId());
@@ -102,15 +112,16 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     }
 
     @Override
-    public final void cancelReceived(GoalID id) {
+    public final void cancelReceived(final GoalID id) {
+        this.cancelledGoalIds.add(id.getId());
         LOGGER.trace("Cancel received.");
     }
 
     @Override
-    public final boolean acceptGoal(FibonacciActionGoal goal) {
+    public final boolean acceptGoal(final FibonacciActionGoal goal) {
         // If we don't have a goal, accept it. Otherwise, reject it.
-        if (currentGoal == null) {
-            currentGoal = goal;
+        if (this.currentGoal == null) {
+            this.currentGoal = goal;
             LOGGER.trace("Goal accepted.");
             return true;
         } else {
