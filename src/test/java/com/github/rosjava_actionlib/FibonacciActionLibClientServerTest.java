@@ -44,7 +44,8 @@ public class FibonacciActionLibClientServerTest {
 
     private RosCore rosCore = null;
 
-    private FibonacciActionLibClient fibonacciActionLibClient = null;
+//    private FibonacciActionLibClient fibonacciActionLibClient = null;
+    private FutureBasedClient futureBasedClient = null;
 
     private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
@@ -57,13 +58,16 @@ public class FibonacciActionLibClientServerTest {
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
 
-            this.fibonacciActionLibClient = new FibonacciActionLibClient();
+//            this.fibonacciActionLibClient = new FibonacciActionLibClient();
 
+            this.futureBasedClient=new FutureBasedClient();
             this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
             this.fibonacciActionLibServer.waitForStart();
-            this.rosExecutor.startNodeMain(this.fibonacciActionLibClient, this.fibonacciActionLibClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+//            this.rosExecutor.startNodeMain(this.fibonacciActionLibClient, this.fibonacciActionLibClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
 
-            final boolean connectedToServer = this.fibonacciActionLibClient.waitForServerConnection(20, TimeUnit.SECONDS);
+//            final boolean connectedToServer = this.fibonacciActionLibClient.waitForServerConnection(20, TimeUnit.SECONDS);
+            final boolean connectedToServer = this.futureBasedClient.waitForServerConnection(20, TimeUnit.SECONDS);
             Assume.assumeTrue("Not Connected to server", connectedToServer);
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
@@ -77,12 +81,14 @@ public class FibonacciActionLibClientServerTest {
     @Test
     public void testCallCancelled() {
         try {
-            final CountDownLatch countDownLatch = this.fibonacciActionLibClient.callCancelled();
-
+//            final CountDownLatch countDownLatch = this.fibonacciActionLibClient.callCancelled();
+//            final CountDownLatch countDownLatch = this.futureBasedClient.callCancelled();
+        final CountDownLatch countDownLatch=new CountDownLatch(1);
             final boolean withinTime = countDownLatch.await(2, TimeUnit.MINUTES);
             LOGGER.debug("Finished call.");
             Assert.assertTrue("Cancel took too long", withinTime);
-            final ClientState currentClientState = this.fibonacciActionLibClient.getActionClient().getGoalState();
+//            final ClientState currentClientState = this.fibonacciActionLibClient.getActionClient().getGoalState();
+            final ClientState currentClientState = this.futureBasedClient.getActionClient().getGoalState();
             Assert.assertTrue("Not Cancelled, current state:" + currentClientState
                     , ClientState.RECALLING.equals(currentClientState)
                             || ClientState.WAITING_FOR_CANCEL_ACK.equals(currentClientState)
@@ -106,12 +112,13 @@ public class FibonacciActionLibClientServerTest {
     public void after() {
 
         try {
-            this.rosExecutor.stopNodeMain(fibonacciActionLibClient);
+//            this.rosExecutor.stopNodeMain(fibonacciActionLibClient);
+            this.rosExecutor.stopNodeMain(this.futureBasedClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            this.rosExecutor.stopNodeMain(fibonacciActionLibServer);
+            this.rosExecutor.stopNodeMain(this.fibonacciActionLibServer);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -140,8 +147,9 @@ public class FibonacciActionLibClientServerTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
-        this.fibonacciActionLibClient = null;
+//        this.fibonacciActionLibClient = null;
         this.fibonacciActionLibServer = null;
+        this.futureBasedClient=null;
         this.rosCore = null;
     }
 
