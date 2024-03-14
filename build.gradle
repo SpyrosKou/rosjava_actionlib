@@ -5,35 +5,24 @@ plugins {
 }
 group 'com.github.SpyrosKou'
 version = '2023.06.14.02'
-group 'com.github.rosjava'
-version = '2024.03.08.01'
 description = 'A pure java version of actionlib'
 sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        maven {
-            url "https://github.com/SpyrosKou/rosjava_mvn_repo/raw/noetic"
-            name "GithubSpyrosKouRepository"
-        }
+    mavenLocal()
+    mavenCentral()
 
+    maven {
+        url "https://github.com/SpyrosKou/rosjava_mvn_repo/raw/noetic"
+        name "GithubSpyrosKouRepository"
     }
+
 
 }
 
 java {
     withSourcesJar()
     withJavadocJar()
-}
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from(components.java)
-        }
-    }
 }
 
 tasks.withType(JavaCompile) {
@@ -48,7 +37,7 @@ tasks.withType(Javadoc) {
 dependencies {
 
     implementation group: 'org.ros.rosjava_bootstrap', name: 'message_generation', version: '0.3.8'
-    implementation 'org.ros.rosjava_core:rosjava:0.3.8'
+    implementation 'org.ros.rosjava_core:rosjava:0.3.9.2'
 
     api 'org.ros.rosjava_messages:actionlib_msgs:1.13.0'
     api 'org.ros.rosjava_messages:actionlib:1.13.2'
@@ -56,7 +45,8 @@ dependencies {
 
 
     implementation 'com.google.guava:guava:33.0.0-jre'
-    api 'org.slf4j:slf4j-api:1.7.25'
+    compileOnly 'org.slf4j:slf4j-api:1.7.30'
+
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
     implementation 'org.apache.commons:commons-lang3:3.12.0'
     implementation 'org.apache.commons:commons-collections4:4.4'
@@ -66,7 +56,11 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.ros.rosjava_messages:actionlib_tutorials:0.1.10'
     testImplementation 'org.ros.rosjava_messages:turtle_actionlib:0.1.10'
-    testImplementation 'org.apache.camel:camel-test:3.20.6'
+    testImplementation 'org.apache.camel:camel-test:3.22.1'
+    testImplementation 'org.slf4j:slf4j-api:1.7.30'
+    testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.2'
+    testImplementation 'org.apache.logging.log4j:log4j-core:2.17.2'
+
 
 }
 
@@ -92,6 +86,8 @@ publishing {
         logger.debug(repositoryDirectory + "not found")
     }
 }
+
+
 
 jar {
     manifest {
