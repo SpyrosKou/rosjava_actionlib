@@ -50,7 +50,9 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
     private final long timeout = 60;
     private final TimeUnit timeUnit = TimeUnit.SECONDS;
     private final int TEST_INPUT = 5;
-    private final int[] TEST_CORRECT_OUTPUT=new FibonacciCalculator().fibonacciSequence(TEST_INPUT);
+    private final int HUGE_INPUT = 9999999;
+    private final int[] TEST_CORRECT_OUTPUT = new FibonacciCalculator().fibonacciSequence(TEST_INPUT);
+    private final int[] TEST_CORRECT_HUGE_INPUT_OUTPUT = new FibonacciCalculator().fibonacciSequence(HUGE_INPUT);
 
     /**
      * Also demonstrates status of Client by printing client status when it changes
@@ -85,7 +87,6 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
             final FibonacciActionResult result = resultFuture.get(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
             Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
             Assert.assertNotNull("Null Result", result);
-
             Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TEST_CORRECT_OUTPUT));
 
 
@@ -97,19 +98,19 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
 
     @Test
     public void testResultListener() {
-        final Stopwatch stopwatch=Stopwatch.createStarted();
+        final Stopwatch stopwatch = Stopwatch.createStarted();
         final CountDownLatch resultReceived = new CountDownLatch(1);
 
         final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
         this.futureBasedClient.getActionClient().addListener(resultListener);
-        final ActionFuture<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> resultFuture= this.futureBasedClient.invoke(TEST_INPUT);
+        final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(TEST_INPUT);
         try {
-            final boolean resultReceivedOK=resultReceived.await(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
-            Assert.assertTrue("Result OK",resultReceivedOK);
+            final boolean resultReceivedOK = resultReceived.await(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
+            Assert.assertTrue("Result OK", resultReceivedOK);
             Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
 
-            final FibonacciActionResult fibonacciActionResult=resultFuture.get(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
-            Assert.assertTrue("Result OK",Arrays.equals(fibonacciActionResult.getResult().getSequence(), TEST_CORRECT_OUTPUT));
+            final FibonacciActionResult fibonacciActionResult = resultFuture.get(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
+            Assert.assertTrue("Result OK", Arrays.equals(fibonacciActionResult.getResult().getSequence(), TEST_CORRECT_OUTPUT));
             Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
         } catch (final Exception exception) {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
@@ -118,26 +119,28 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
     }
 
 
-
-
-
     @Test
     public void testCancel() {
-        final Stopwatch stopwatch=Stopwatch.createStarted();
+        final Stopwatch stopwatch = Stopwatch.createStarted();
         final CountDownLatch resultReceived = new CountDownLatch(1);
 
         final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
         this.futureBasedClient.getActionClient().addListener(resultListener);
-        final ActionFuture<FibonacciActionGoal,FibonacciActionFeedback,FibonacciActionResult> resultFuture= this.futureBasedClient.invoke(TEST_INPUT);
+        final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(HUGE_INPUT);
         try {
-            resultFuture.cancel(true);
-            final boolean resultReceivedOK=resultReceived.await(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
-            Assert.assertTrue("Result OK",resultReceivedOK);
-            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
+            final boolean cancel = resultFuture.cancel(true);
+            Assert.assertTrue("Could not cancel", cancel);
+            final boolean resultReceivedOK = resultReceived.await(3 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
+            Assume.assumeTrue("Managed to receive result before canceling", resultReceivedOK);
 
-            final FibonacciActionResult fibonacciActionResult=resultFuture.get(this.timeout- stopwatch.elapsed(this.timeUnit),this.timeUnit);
-            Assert.assertTrue("Result OK",Arrays.equals(fibonacciActionResult.getResult().getSequence(), TEST_CORRECT_OUTPUT));
-            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, stopwatch.elapsed(this.timeUnit) <= this.timeout);
+            final ClientState currentClientState = resultFuture.getCurrentState();
+            Assert.assertTrue("Not Cancelled, current state:" + currentClientState
+                    , ClientState.RECALLING.equals(currentClientState)
+                            || ClientState.WAITING_FOR_CANCEL_ACK.equals(currentClientState)
+                            || ClientState.PREEMPTING.equals(currentClientState)
+//                            || ClientState.DONE.equals(currentClientState)
+            );
+
         } catch (final Exception exception) {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
         }
