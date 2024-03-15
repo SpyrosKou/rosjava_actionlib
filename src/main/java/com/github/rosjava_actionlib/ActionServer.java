@@ -317,15 +317,20 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             this.actionServerListener.goalReceived(goal);
 
             // ask if the user accepts the goal
-            final boolean accepted = this.actionServerListener.acceptGoal(goal);
+            final Optional<Boolean> acceptedOptional = this.actionServerListener.acceptGoal(goal);
+            Objects.requireNonNull(acceptedOptional);
+            if (acceptedOptional.isPresent()) {
+                final boolean accepted = acceptedOptional.get();
+                if (accepted) {
+                    this.setAccepted(goalIdString);
 
-            if (accepted) {
-                this.setAccepted(goalIdString);
-
-            } else {
-                this.setRejected(goalIdString);
+                } else {
+                    this.setRejected(goalIdString);
+                }
+            }else{
+                LOGGER.trace("Goal:"+goalIdString+" should be handled by user");
             }
-            this.sendStatusTick();
+
         } else {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Got null goal:" + this.toString());
@@ -364,7 +369,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             }
 
             status.setStatusList(goalStatusList);
-            sendStatus(status);
+            this.sendStatus(status);
 
         } catch (final Exception exception) {
             LOGGER.error(ExceptionUtils.getStackTrace(exception));
@@ -422,7 +427,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @param goalIdString
      */
     public final void setSucceed(final String goalIdString) {
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.SUCCEED);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.SUCCEED);
+
     }
 
     /**
@@ -431,39 +437,64 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @param goalIdString
      */
     public final void setPreempt(final String goalIdString) {
-
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.CANCEL_REQUEST);
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.CANCEL);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL_REQUEST);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL);
     }
 
     /**
      * The user accepted the goal
+     * Status is also sent to client
      */
-    private final void setAccepted(final String goalIdString) {
+    public final void setAccepted(final String goalIdString) {
         // the user accepted the goal
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.ACCEPT);
+
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.ACCEPT);
+        this.sendStatusTick();
     }
 
     /**
+     * The user requested to cancel the goal
+     *
+     */
+    public final void setCancelRequested(final String goalIdString) {
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL_REQUEST);
+    }
+
+    /**
+     * The server cancelled the goal
+     *
+     */
+    public final void setCancel(final String goalIdString) {
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL);
+    }
+
+
+    /**
      * the user rejected the goal
+     * Status is also sent to client
      *
      * @param goalIdString
      */
-    private final void setRejected(final String goalIdString) {
+    public final void setRejected(final String goalIdString) {
         // the user rejected the goal
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.REJECT);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.REJECT);
+        this.sendStatusTick();
+
+    }
+
+    private final void recordTransitionEvent(final String goalIdString, final int event) {
+        this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) ->
+        {
+            this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(event);
+            return value;
+        });
     }
 
     /**
      * Express an aborted event for this goal. The state of the goal will be updated.
      */
     public final void setAbort(final String goalIdString) {
-        this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) ->
-        {
-            this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.ABORT);
-            return value;
-        });
-
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.ABORT);
     }
 
 
