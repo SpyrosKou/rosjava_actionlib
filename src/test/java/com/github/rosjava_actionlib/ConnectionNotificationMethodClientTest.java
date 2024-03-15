@@ -27,7 +27,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -77,7 +76,7 @@ public class ConnectionNotificationMethodClientTest {
      */
     @Test
     @Deprecated
-    public void testClientServer() {
+    public void testClientStarts() {
         try {
             final long timeoutMillis = 30_000;
 
