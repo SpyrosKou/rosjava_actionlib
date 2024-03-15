@@ -72,7 +72,7 @@ public class ConnectionNotificationMethodClientTest {
 
 
     /**
-     * TODO remove Sleep
+     *
      */
     @Test
     @Deprecated
