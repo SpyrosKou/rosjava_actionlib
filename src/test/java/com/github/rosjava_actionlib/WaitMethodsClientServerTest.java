@@ -120,8 +120,8 @@ public class WaitMethodsClientServerTest {
 
                 try {
                     final FibonacciActionResult results = resultFuture.get(3 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
-                    final Set<ClientState> expectedValues= EnumSet.of(ClientState.PENDING,ClientState.NO_GOAL,ClientState.RECALLING,ClientState.WAITING_FOR_CANCEL_ACK);
-                    final ClientState clientState=resultFuture.getCurrentState();
+                    final Set<ClientState> expectedValues = EnumSet.of(ClientState.PENDING, ClientState.NO_GOAL, ClientState.RECALLING, ClientState.WAITING_FOR_CANCEL_ACK);
+                    final ClientState clientState = resultFuture.getCurrentState();
                     Assert.assertTrue("Managed to receive result before canceling. Is resultOk:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.equals(results.getResult().getSequence()) + " expeced size:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.length + " current size:" + results.getResult().getSequence().length, expectedValues.contains(clientState));
                 } catch (final Exception exception) {
                     LOGGER.trace("Exception expected:" + ExceptionUtils.getStackTrace(exception));
@@ -129,6 +129,7 @@ public class WaitMethodsClientServerTest {
 
                 final ClientState currentClientState = resultFuture.getCurrentState();
                 Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.NO_GOAL, currentClientState);
+                LOGGER.trace("ClientState:" + currentClientState);
 
             } catch (final Exception exception) {
                 Assert.fail(ExceptionUtils.getStackTrace(exception));
