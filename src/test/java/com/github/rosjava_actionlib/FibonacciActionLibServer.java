@@ -29,8 +29,10 @@ import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import std_msgs.Bool;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
@@ -86,30 +88,8 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
 
     @Override
     public final void goalReceived(final FibonacciActionGoal goal) {
-        LOGGER.trace("Goal received.");
-        final FibonacciActionFeedback feedback=this.actionServer.newFeedbackMessage();
-        feedback.getStatus().setStatus(GoalStatus.ACTIVE);
-        this.actionServer.sendFeedback(feedback);
+        LOGGER.trace("Goal received: "+goal.getGoalId().getId());
 
-        final FibonacciActionResult result = this.actionServer.newResultMessage();
-        copyGoal(goal.getGoalId(), result.getStatus().getGoalId());
-        final int input = goal.getGoal().getOrder();
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Renaming Thread" + Thread.currentThread().getName());
-            Thread.currentThread().setName("GoalReceived " + Thread.currentThread().getName());
-        }
-        final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goal), Runnables::doNothing);
-        result.getResult().setSequence(output);
-
-
-
-        if (this.shouldCancelGoal(goal)) {
-            this.cancelledGoalIds.remove(goal.getGoalId().getId());
-        }else{
-            result.getStatus().setStatus(GoalStatus.SUCCEEDED);
-            this.actionServer.setSucceed(goal.getGoalId().getId());
-        }
-        this.actionServer.sendResult(result);
     }
 
     private final boolean shouldCancelGoal(final FibonacciActionGoal goal) {
@@ -124,20 +104,43 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     @Override
     public final void cancelReceived(final GoalID id) {
         this.cancelledGoalIds.add(id.getId());
-        LOGGER.trace("Cancel received.");
-        this.actionServer.setAbort(id.getId());
+        LOGGER.trace("Cancel received for goal:"+id);
     }
 
     @Override
-    public final boolean acceptGoal(final FibonacciActionGoal goal) {
+    public final Optional<Boolean> acceptGoal(final FibonacciActionGoal goal) {
         // If we don't have a goal, accept it. Otherwise, reject it.
         if (this.currentGoal == null) {
             this.currentGoal = goal;
+            this.actionServer.setAccepted(this.currentGoal.getGoalId().getId());
             LOGGER.trace("Goal accepted.");
-            return true;
+            final FibonacciActionFeedback feedback=this.actionServer.newFeedbackMessage();
+            feedback.getStatus().setStatus(GoalStatus.ACTIVE);
+            this.actionServer.sendFeedback(feedback);
+
+            final FibonacciActionResult result = this.actionServer.newResultMessage();
+            copyGoal(goal.getGoalId(), result.getStatus().getGoalId());
+            final int input = goal.getGoal().getOrder();
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Renaming Thread" + Thread.currentThread().getName());
+                Thread.currentThread().setName("GoalReceived " + Thread.currentThread().getName());
+            }
+            final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goal), Runnables::doNothing);
+            result.getResult().setSequence(output);
+
+
+
+            if (this.shouldCancelGoal(goal)) {
+                this.cancelledGoalIds.remove(goal.getGoalId().getId());
+            }else{
+                result.getStatus().setStatus(GoalStatus.SUCCEEDED);
+                this.actionServer.setSucceed(goal.getGoalId().getId());
+            }
+            this.actionServer.sendResult(result);
+            return Optional.empty();
         } else {
             LOGGER.trace("We already have a goal! New goal reject.");
-            return false;
+            return Optional.of(Boolean.FALSE);
         }
     }
 
