@@ -31,7 +31,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
  * Test wait methods with {@link FibonacciActionLibServer} with {@link FibonacciActionLibClient}
  */
 
@@ -82,12 +81,10 @@ public class ConnectionNotificationMethodClientTest {
         try {
             final long timeoutMillis = 30_000;
 
-            final CountDownLatch countDownLatch = new CountDownLatch(1);
-            this.futureBasedClient.setOnConnection(() -> countDownLatch.countDown());
+
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
             this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
-
-            final boolean clientStarted = countDownLatch.await(timeoutMillis, TimeUnit.MILLISECONDS);
+            final boolean clientStarted = futureBasedClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
             LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
             Assert.assertTrue("Client Not Started", clientStarted);
             final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
