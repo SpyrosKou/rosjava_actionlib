@@ -131,12 +131,12 @@ class ActionLibServerFeedbackListener extends AbstractNodeMain implements Action
 
             result.getResult().setSequence(fibonacciCalculator.fibonacciSequence(order));
 
-            actionServer.setSucceed(id);
-            actionServer.setGoalStatus(result.getStatus(), id);
+            this.actionServer.setSucceed(id);
+            this.actionServer.getGoalStatus(id);
 
             LOGGER.trace("Sending result...");
-            actionServer.sendResult(result);
-            goals.remove(id);
+            this.actionServer.sendResult(result);
+            this.goals.remove(id);
             LOGGER.trace("Finishing the execution of GOAL:" + id);
         });
 
