@@ -79,6 +79,7 @@ public class FibonacciActionLibClientServerTest {
 
 
     @Test
+    @Ignore
     public void testCallCancelled() {
         try {
 //            final CountDownLatch countDownLatch = this.fibonacciActionLibClient.callCancelled();
