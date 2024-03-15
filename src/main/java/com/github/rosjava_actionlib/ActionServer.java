@@ -345,6 +345,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         }
     }
 
+
     /**
      * Publishes the current status on the server's status topic.
      * This is used like a heartbeat to update the status of every tracked goal.
@@ -404,7 +405,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @return The current state of the goal or -100 if the goal ID is not tracked.
      * @see actionlib_msgs.GoalStatus
      */
-    public final byte getGoalState(final String goalId) {
+    public final byte getGoalStatus(final String goalId) {
         byte ret = 0;
 
         if (this.goalIdToGoalStatusMap.containsKey(goalId)) {
@@ -457,21 +458,14 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Express an aborted event for this goal. The state of the goal will be updated.
      */
     public final void setAbort(final String goalIdString) {
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.ABORT);
+        this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) ->
+        {
+            this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.ABORT);
+            return value;
+        });
+
     }
 
-    /**
-     * Set goal ID and state information to the goal status message.
-     *
-     * @param goalStatus GoalStatus message.
-     * @param gidString  String identifying the goal.
-     * @see actionlib_msgs.GoalStatus
-     */
-    public final void setGoalStatus(final GoalStatus goalStatus, final String gidString) {
-        final ServerGoal<T_ACTION_GOAL> serverGoal = this.goalIdToGoalStatusMap.get(gidString);
-        goalStatus.setGoalId(getGoalId(serverGoal.goal));
-        goalStatus.setStatus(serverGoal.stateMachine.getState());
-    }
 
     /**
      * Publishes the server's topics and subscribes to the client's topics.
