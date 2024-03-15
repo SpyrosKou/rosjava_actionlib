@@ -26,9 +26,11 @@
         <Logger name="httpclient.wire.content" level="ERROR"/>
 
         <Logger name="com.github.rosjava_actionlib" level="TRACE"/>
-
+        <Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="TRACE"/>
+        <Logger name="com.github.rosjava_actionlib.TopicParticipantListener" level="ERROR"/>
 
         <!--<Logger name="com.github.rosjava_actionlib.ActionClient" level="DEBUG"/>
+
         <Logger name="com.github.rosjava_actionlib.FibonacciFutureBasedClientTestlientTest" level="TRACE"/>
         <Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="DEBUG"/>-->
 
