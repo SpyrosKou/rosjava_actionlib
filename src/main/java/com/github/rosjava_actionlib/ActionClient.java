@@ -63,6 +63,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     private static final long PUBLISHER_SHUTDOWN_TIMEOUT_MILLIS = 5000;
     private static final boolean LATCH_MODE = false;
+    private final GoalStatusToString goalStatusToString=new GoalStatusToString();
 
     private final ClientGoalManager<T_ACTION_GOAL> goalManager = new ClientGoalManager<>(new ActionGoal<>());
     ;
@@ -575,7 +576,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                                 for (final GoalStatus status : goalStatuses) {
                                     goalStatus = goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) >= 0 ? goalStatus : status;
                                     if (LOGGER.isTraceEnabled()) {
-                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() + "," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
+                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() +"("+this.goalStatusToString.getStatus(goalStatus.getStatus())+ ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
                                     }
 
                                 }

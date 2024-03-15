@@ -103,7 +103,6 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final boolean cancel(final boolean mayInterruptIfRunning) {
-
         this.actionClient.sendCancel(this.goalid);
         this.goalManager.cancelGoal();
         return true;
@@ -188,8 +187,8 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
     public final void feedbackReceived(final T_FEEDBACK t_feedback) {
         final ActionFeedback actionFeedback = new ActionFeedback(t_feedback);
 
-        if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(goalid.getId())) {
-            goalManager.updateStatus(actionFeedback.getGoalStatusMessage().getStatus());
+        if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(this.goalid.getId())) {
+            this.goalManager.updateStatus(actionFeedback.getGoalStatusMessage().getStatus());
             this.latestFeedback = t_feedback;
         }
 

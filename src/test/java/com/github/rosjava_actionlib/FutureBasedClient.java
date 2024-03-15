@@ -166,9 +166,10 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
     @Override
     public final void statusReceived(final GoalStatusArray status) {
         if (LOGGER.isInfoEnabled()) {
+            final GoalStatusToString goalStatusToString=new GoalStatusToString();
             final List<GoalStatus> statusList = status.getStatusList();
             for (final GoalStatus goalStatus : statusList) {
-                LOGGER.info("GoalID: " + goalStatus.getGoalId().getId() + " GoalStatus: " + goalStatus.getStatus() + " - " + goalStatus.getText());
+                LOGGER.info("GoalID: " + goalStatus.getGoalId().getId() + " GoalStatus: " + goalStatus.getStatus() + " - " + goalStatus.getText()+" GoalStatus:"+goalStatusToString.getStatus(goalStatus.getStatus()));
             }
 
         }
