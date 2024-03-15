@@ -17,6 +17,7 @@
 
 package com.github.rosjava_actionlib;
 
+import actionlib_msgs.GoalStatus;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
@@ -30,6 +31,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -107,26 +111,24 @@ public class WaitMethodsClientServerTest {
                 LOGGER.trace("Connected at:" + publishersDurationMillis + " Millis");
             }
 
-            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(10);
             try {
+                final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClient.invoke(TestInputs.HUGE_INPUT);
                 final Stopwatch stopwatch = Stopwatch.createStarted();
-                final CountDownLatch resultReceived = new CountDownLatch(1);
-
-                final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
-                this.futureBasedClient.getActionClient().addListener(resultListener);
 
                 final boolean cancel = resultFuture.cancel(true);
                 Assert.assertTrue("Could not cancel", cancel);
-                final boolean resultReceivedOK = resultReceived.await(3 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
-                Assume.assumeTrue("Managed to receive result before canceling", resultReceivedOK);
+
+                try {
+                    final FibonacciActionResult results = resultFuture.get(3 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
+                    final Set<ClientState> expectedValues= EnumSet.of(ClientState.PENDING,ClientState.NO_GOAL,ClientState.RECALLING,ClientState.WAITING_FOR_CANCEL_ACK);
+                    final ClientState clientState=resultFuture.getCurrentState();
+                    Assert.assertTrue("Managed to receive result before canceling. Is resultOk:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.equals(results.getResult().getSequence()) + " expeced size:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.length + " current size:" + results.getResult().getSequence().length, expectedValues.contains(clientState));
+                } catch (final Exception exception) {
+                    LOGGER.trace("Exception expected:" + ExceptionUtils.getStackTrace(exception));
+                }
 
                 final ClientState currentClientState = resultFuture.getCurrentState();
-                Assert.assertTrue("Not Cancelled, current state:" + currentClientState
-                        , ClientState.RECALLING.equals(currentClientState)
-                                || ClientState.WAITING_FOR_CANCEL_ACK.equals(currentClientState)
-                                || ClientState.PREEMPTING.equals(currentClientState)
-//                            || ClientState.DONE.equals(currentClientState)
-                );
+                Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.NO_GOAL, currentClientState);
 
             } catch (final Exception exception) {
                 Assert.fail(ExceptionUtils.getStackTrace(exception));
