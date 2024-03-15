@@ -17,6 +17,7 @@
 
 package com.github.rosjava_actionlib;
 
+import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -27,46 +28,40 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 
 /**
- * @deprecated uses the deprecated {@link SimpleServer}
- * Demonstrate and test {@link SimpleServer} with {@link SimpleClient}
+ * Test wait methods with {@link FibonacciActionLibServer} with {@link FibonacciActionLibClient}
  */
-@Deprecated
-@Ignore
-public class ClientServerTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+public class ConnectionNotificationMethodClientTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
 
     private static final TestProperties testProperties = TestProperties.getFromDefaultFile();
 
     private static final String ROS_HOST_IP = testProperties.getRosHostIp();
-    private static final int ROS_MASTER_URI_PORT = testProperties.getRosMasterUriPort();
-    private static final String ROS_MASTER_URI = testProperties.getRosMasterUri();
+
     private RosCore rosCore = null;
 
-    private SimpleClient simpleClient = null;
+    private FutureBasedClient futureBasedClient = null;
 
-    private SimpleServer simpleServer = null;
+    private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
     @Before
     public void before() {
         try {
-            this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
+            this.rosCore = RosCore.newPrivate();
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            this.simpleServer = new SimpleServer();
+            this.fibonacciActionLibServer = new FibonacciActionLibServer();
 
-            this.simpleClient = new SimpleClient();
+            this.futureBasedClient = new FutureBasedClient();
 
-            this.rosExecutor.startNodeMain(this.simpleServer, this.simpleServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            this.simpleServer.waitForStart();
-            this.rosExecutor.startNodeMain(this.simpleClient, this.simpleClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean connectedToServer = this.simpleClient.waitForServerConnection(20);
-            Assume.assumeTrue("Not Connected to server", connectedToServer);
+            this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            this.fibonacciActionLibServer.waitForStart();
+
+
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
@@ -76,21 +71,23 @@ public class ClientServerTest {
     }
 
 
+    /**
+     * TODO remove Sleep
+     */
     @Test
-    public void testClientServer() {
+    @Deprecated
+    public void testClientStarts() {
         try {
-            LOGGER.trace("Starting Tasks");
-            simpleClient.startTasks();
-            LOGGER.trace("Falling asleep");
+            final long timeoutMillis = 30_000;
 
-            try {
-                Thread.sleep(10_000);
-            } catch (final Exception er3) {
-                LOGGER.error(ExceptionUtils.getStackTrace(er3));
-            }
-            LOGGER.trace("Awaken");
 
-            LOGGER.trace("Stopping");
+            final Stopwatch stopWatchClient = Stopwatch.createStarted();
+            this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            final boolean clientStarted = futureBasedClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+            LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
+            Assert.assertTrue("Client Not Started", clientStarted);
+            final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
+            Assert.assertTrue(timeoutMillis >= clientConnectionsMillis);
 
 
         } catch (final Exception e) {
@@ -101,12 +98,12 @@ public class ClientServerTest {
     @After
     public void after() {
         try {
-            rosExecutor.stopNodeMain(simpleServer);
+            rosExecutor.stopNodeMain(fibonacciActionLibServer);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(simpleClient);
+            rosExecutor.stopNodeMain(futureBasedClient);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -129,8 +126,8 @@ public class ClientServerTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
-        this.simpleClient = null;
-        this.simpleServer = null;
+        this.futureBasedClient = null;
+        this.fibonacciActionLibServer = null;
         this.rosCore = null;
     }
 

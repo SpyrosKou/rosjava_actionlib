@@ -123,7 +123,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Publish the current status information for the tracked goals on the /status topic.
      *
      * @param status GoalStatusArray message containing the status to send.
-     *
      * @see actionlib_msgs.GoalStatusArray
      */
     public final void sendStatus(final GoalStatusArray status) {
@@ -284,9 +283,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final void subscribeToClient(final ConnectedNode node) {
         this.goalSubscriber = node.newSubscriber(this.getActionGoalTopic(), actionGoalType);
         this.cancelSubscriber = node.newSubscriber(this.getActionCancelTopic(), GoalID._TYPE);
-
         this.goalSubscriber.addMessageListener(this::gotGoal);
-
         this.cancelSubscriber.addMessageListener(this::gotCancel);
     }
 
@@ -306,6 +303,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * Called when a message is received from the subscribed goal topic.
+     *
      * @param goal
      */
     public final void gotGoal(final T_ACTION_GOAL goal) {
@@ -319,20 +317,30 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             this.actionServerListener.goalReceived(goal);
 
             // ask if the user accepts the goal
-            final boolean accepted = this.actionServerListener.acceptGoal(goal);
+            final Optional<Boolean> acceptedOptional = this.actionServerListener.acceptGoal(goal);
+            Objects.requireNonNull(acceptedOptional);
+            if (acceptedOptional.isPresent()) {
+                final boolean accepted = acceptedOptional.get();
+                if (accepted) {
+                    this.setAccepted(goalIdString);
 
-            if (accepted) {
-                this.setAccepted(goalIdString);
-
-            } else {
-                this.setRejected(goalIdString);
+                } else {
+                    this.setRejected(goalIdString);
+                }
+            }else{
+                LOGGER.trace("Goal:"+goalIdString+" should be handled by user");
             }
-            this.sendStatusTick();
+
+        } else {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Got null goal:" + this.toString());
+            }
         }
+
     }
 
     /**
-     *  Called when we get a message on the subscribed cancel topic.
+     * Called when we get a message on the subscribed cancel topic.
      *
      * @param goalID
      */
@@ -341,6 +349,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             this.actionServerListener.cancelReceived(goalID);
         }
     }
+
 
     /**
      * Publishes the current status on the server's status topic.
@@ -360,7 +369,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             }
 
             status.setStatusList(goalStatusList);
-            sendStatus(status);
+            this.sendStatus(status);
 
         } catch (final Exception exception) {
             LOGGER.error(ExceptionUtils.getStackTrace(exception));
@@ -386,7 +395,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Returns the goal ID object related to a given action goal.
      *
      * @param goal An action goal message.
-     *
      * @return The goal ID object.
      */
     public final GoalID getGoalId(final T_ACTION_GOAL goal) {
@@ -399,12 +407,10 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Get the current state of the referenced goal.
      *
      * @param goalId String representing the ID of the goal.
-     *
      * @return The current state of the goal or -100 if the goal ID is not tracked.
-     *
      * @see actionlib_msgs.GoalStatus
      */
-    public final byte getGoalState(final String goalId) {
+    public final byte getGoalStatus(final String goalId) {
         byte ret = 0;
 
         if (this.goalIdToGoalStatusMap.containsKey(goalId)) {
@@ -417,59 +423,80 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * Express a succeed event for this goal. The state of the goal will be updated.
+     *
      * @param goalIdString
      */
     public final void setSucceed(final String goalIdString) {
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.SUCCEED);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.SUCCEED);
+
     }
 
     /**
      * Express a preempted event for this goal. The state of the goal will be updated.
+     *
      * @param goalIdString
      */
     public final void setPreempt(final String goalIdString) {
-
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.CANCEL_REQUEST);
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.CANCEL);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL_REQUEST);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL);
     }
 
     /**
      * The user accepted the goal
+     * Status is also sent to client
      */
-    private final void setAccepted(final String goalIdString) {
+    public final void setAccepted(final String goalIdString) {
         // the user accepted the goal
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.ACCEPT);
+
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.ACCEPT);
+        this.sendStatusTick();
     }
 
     /**
-     * the user rejected the goal
-     * @param goalIdString 
+     * The user requested to cancel the goal
+     *
      */
-    private final void setRejected(final String goalIdString) {
+    public final void setCancelRequested(final String goalIdString) {
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL_REQUEST);
+    }
+
+    /**
+     * The server cancelled the goal
+     *
+     */
+    public final void setCancel(final String goalIdString) {
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL);
+    }
+
+
+    /**
+     * the user rejected the goal
+     * Status is also sent to client
+     *
+     * @param goalIdString
+     */
+    public final void setRejected(final String goalIdString) {
         // the user rejected the goal
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.REJECT);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.REJECT);
+        this.sendStatusTick();
+
+    }
+
+    private final void recordTransitionEvent(final String goalIdString, final int event) {
+        this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) ->
+        {
+            this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(event);
+            return value;
+        });
     }
 
     /**
      * Express an aborted event for this goal. The state of the goal will be updated.
      */
     public final void setAbort(final String goalIdString) {
-        this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(ServerStateMachine.Events.ABORT);
+        this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.ABORT);
     }
 
-    /**
-     * Set goal ID and state information to the goal status message.
-     *
-     * @param goalStatus GoalStatus message.
-     * @param gidString  String identifying the goal.
-     *
-     * @see actionlib_msgs.GoalStatus
-     */
-    public final void setGoalStatus(final GoalStatus goalStatus, final String gidString) {
-        final ServerGoal<T_ACTION_GOAL> serverGoal = this.goalIdToGoalStatusMap.get(gidString);
-        goalStatus.setGoalId(getGoalId(serverGoal.goal));
-        goalStatus.setStatus(serverGoal.stateMachine.getState());
-    }
 
     /**
      * Publishes the server's topics and subscribes to the client's topics.

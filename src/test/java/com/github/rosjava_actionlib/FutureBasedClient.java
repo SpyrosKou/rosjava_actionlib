@@ -1,4 +1,5 @@
 /**
+ * Copyright 2015 Ekumen www.ekumenlabs.com
  * Copyright 2020 Spyros Koukas
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,9 +21,8 @@ import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.*;
 import com.google.common.base.Stopwatch;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.ros.message.Duration;
+import com.google.common.util.concurrent.Runnables;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -31,18 +31,26 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.Objects;
+import java.util.StringJoiner;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Demonstrates the {@link ActionFuture} usage
  *
  * @author Spyros Koukas
  */
-class FutureBasedClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
-private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private ActionClient actionClient = null;
+final class FutureBasedClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final int MAX_PRINT_SEQUENCE_ELEMENTS = 100;
 
-    private volatile boolean isStarted = false;
+    final ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getActionClient() {
+        return this.actionClient;
+    }
+
+    private ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionClient = null;
 
 
     @Override
@@ -50,43 +58,43 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
         return GraphName.of("fibonacci_future_client");
     }
 
+    private final CountDownLatch connectionCountDownLatch = new CountDownLatch(1);
+    private final AtomicBoolean connectedToServerCache = new AtomicBoolean(false);
 
-    /**
-     * @param seconds the maximum time to wait before the client is started
-     *
-     * @return
-     */
-    public final boolean waitForServerConnection(final double seconds) {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isStarted && stopwatch.elapsed(TimeUnit.SECONDS) <= seconds) {
-            this.sleep(100);
-        }
-        if (this.isStarted) {
-            final Duration serverTimeout = new Duration(Math.max(0.1, seconds - stopwatch.elapsed(TimeUnit.SECONDS)));
-            boolean serverStarted = false;
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
+        if (this.connectedToServerCache.get()) {
+            return true;
+        } else {
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+
             LOGGER.trace("Waiting for action server to start...");
-            serverStarted = this.actionClient.waitForActionServerToStart(serverTimeout);
-            if (serverStarted) {
-                LOGGER.trace("Action server started.\n");
-                return true;
-            } else {
-                LOGGER.trace("No actionlib server found after waiting for " + serverTimeout.totalNsecs() / 1e9 + " seconds!");
+            try {
+                final boolean nodeStarted = this.connectionCountDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+                final boolean clientStarted = nodeStarted && this.actionClient.waitForActionServerToStart(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+                final boolean serverConnection = clientStarted && this.actionClient.waitForServerConnection(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Action client started:[" + clientStarted + "] serverConnected:[" + serverConnection + "] nodeStarted:[" + nodeStarted + "]");
+                }
+                if (serverConnection) {
+                    this.connectedToServerCache.compareAndSet(false, true);
+                }
+                return serverConnection;
+            } catch (final Exception exception) {
+                LOGGER.error(ExceptionUtils.getStackTrace(exception));
                 return false;
             }
-        } else {
-            return false;
         }
 
     }
 
     /**
      * @param order
-     *
      * @return a future of the fibonacci
      */
-    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> invoke(final int order) {
+    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> invoke(
+            final int order) {
         // Create Fibonacci goal message
-        final FibonacciActionGoal goalMessage = (FibonacciActionGoal) actionClient.newGoalMessage();
+        final FibonacciActionGoal goalMessage = actionClient.newGoalMessage();
         final FibonacciGoal fibonacciGoal = goalMessage.getGoal();
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
@@ -97,11 +105,36 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
 
 
     @Override
-    public void onStart(final ConnectedNode node) {
-        this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
-        this.isStarted = true;
+    public final void onStart(final ConnectedNode connectedNode) {
+        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE,this::getOnConnection);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
+        this.connectionCountDownLatch.countDown();
+    }
+
+    /**
+     * @param message
+     */
+    @Override
+    public final void resultReceived(final FibonacciActionResult message) {
+
+        if(LOGGER.isInfoEnabled()){
+            LOGGER.info("Result Received, size:"+message.getResult().getSequence().length);
+        }
+        if (LOGGER.isTraceEnabled()) {
+
+            final FibonacciResult result = message.getResult();
+            int[] sequence = result.getSequence();
+            final StringJoiner stringJoiner = new StringJoiner(",", "Finonacci sequence:{", "}");
+            for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
+                stringJoiner.add(sequence[i] + " ");
+            }
+            if(sequence.length> MAX_PRINT_SEQUENCE_ELEMENTS){
+                stringJoiner.add("Showing only first 100 elements");
+            }
+            LOGGER.trace(stringJoiner.toString());
+        }
+
 
     }
 
@@ -109,54 +142,44 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
      * @param message
      */
     @Override
-    public void resultReceived(final FibonacciActionResult message) {
-        FibonacciResult result = message.getResult();
-        int[] sequence = result.getSequence();
-        int i;
-
-
-        LOGGER.trace("Got Fibonacci result sequence: ");
-        for (i = 0; i < sequence.length; i++)
-            LOGGER.trace(Integer.toString(sequence[i]) + " ");
-        LOGGER.trace("");
-    }
-
-    /**
-     * @param message
-     */
-    @Override
-    public void feedbackReceived(final FibonacciActionFeedback message) {
-        FibonacciFeedback result = message.getFeedback();
-        int[] sequence = result.getSequence();
-        int i;
-
-        LOGGER.trace("Feedback from Fibonacci server: ");
-        for (i = 0; i < sequence.length; i++)
-            LOGGER.trace(Integer.toString(sequence[i]) + " ");
-        LOGGER.trace("\n");
+    public final void feedbackReceived(final FibonacciActionFeedback message) {
+        if(LOGGER.isInfoEnabled()){
+            LOGGER.info("Result Received, size:"+message.getFeedback().getSequence().length);
+        }
+        if (LOGGER.isTraceEnabled()) {
+            final FibonacciFeedback messageFeedback = message.getFeedback();
+            int[] sequence = messageFeedback.getSequence();
+            final StringJoiner stringJoiner = new StringJoiner(",", "Feedback Fibonacci sequence:{", "}");
+            for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
+                stringJoiner.add(sequence[i] + " ");
+            }
+            if(sequence.length> MAX_PRINT_SEQUENCE_ELEMENTS){
+                stringJoiner.add("Showing only first 100 elements");
+            }
+            LOGGER.trace(stringJoiner.toString());
+        }
     }
 
     /**
      * @param status The status message received from the server.
      */
     @Override
-    public void statusReceived(final GoalStatusArray status) {
+    public final void statusReceived(final GoalStatusArray status) {
         if (LOGGER.isInfoEnabled()) {
+            final GoalStatusToString goalStatusToString=new GoalStatusToString();
             final List<GoalStatus> statusList = status.getStatusList();
             for (final GoalStatus goalStatus : statusList) {
-                LOGGER.info("GoalID: " + goalStatus.getGoalId().getId() + " GoalStatus: " + goalStatus.getStatus() + " - " + goalStatus.getText());
+                LOGGER.info("GoalID: " + goalStatus.getGoalId().getId() + " GoalStatus: " + goalStatus.getStatus() + " - " + goalStatus.getText()+" GoalStatus:"+goalStatusToString.getStatus(goalStatus.getStatus()));
             }
+
         }
     }
-
-    /**
-     * @param msec
-     */
-    private final void sleep(final long msec) {
-        try {
-            Thread.sleep(msec);
-        } catch (InterruptedException ex) {
-        }
+    public final void setOnConnection(final Runnable onConnection) {
+        Objects.requireNonNull(onConnection);
+        this.onConnection = onConnection;
     }
-
+    private final Runnable getOnConnection(){
+        return this.onConnection;
+    }
+    private Runnable onConnection = Runnables::doNothing;
 }

@@ -69,11 +69,11 @@ final class ClientGoalManager<T_ACTION_GOAL extends Message> {
     }
 
     /**
-     * @param actionGoal
+     * @param actionGoalMessage
      */
-    final void setGoal(final T_ACTION_GOAL actionGoal) {
+    final void setGoal(final T_ACTION_GOAL actionGoalMessage) {
         final ActionGoal<T_ACTION_GOAL> actionGoalWrapper = new ActionGoal();
-        actionGoalWrapper.setActionGoalMessage(actionGoal);
+        actionGoalWrapper.setActionGoalMessage(actionGoalMessage);
         this.setGoal(actionGoalWrapper);
     }
 

@@ -20,7 +20,11 @@ package com.github.rosjava_actionlib;
 import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_msgs.GoalStatusArray;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.util.concurrent.Runnables;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
@@ -39,13 +43,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Client implementation for actionlib.
  * This class encapsulates the communication with an actionlib server.
  * Can accept more than one Action Listeners
+ * *
  *
  * @author Ernesto Corbellini ecorbellini@ekumenlabs.com
  * @author Spyros Koukas
@@ -53,9 +59,14 @@ import java.util.stream.Collectors;
 public final class ActionClient<T_ACTION_GOAL extends Message,
         T_ACTION_FEEDBACK extends Message,
         T_ACTION_RESULT extends Message> {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final ClientGoalManager<T_ACTION_GOAL> goalManager;
+
+    private static final long PUBLISHER_SHUTDOWN_TIMEOUT_MILLIS = 5000;
+    private static final boolean LATCH_MODE = false;
+    private final GoalStatusToString goalStatusToString=new GoalStatusToString();
+
+    private final ClientGoalManager<T_ACTION_GOAL> goalManager = new ClientGoalManager<>(new ActionGoal<>());
+    ;
     private final String actionGoalType;
     private final String actionResultType;
     private final String actionFeedbackType;
@@ -65,15 +76,43 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private Subscriber<T_ACTION_FEEDBACK> serverFeedbackSubscriber = null;
     private Subscriber<GoalStatusArray> serverStatusSubscriber = null;
     private String actionName;
-    private static final boolean LATCH_MODE = false;
-    //    private final List<ActionClientListener<T_ACTION_FEEDBACK,T_ACTION_RESULT>> callbackTargets = new CopyOnWriteArrayList<>();
+    private final long ON_CONNECTION_TIMEOUT_MILLIS = 50;
+
+
     private final List<ActionClientResultListener<T_ACTION_RESULT>> callbackResultTargets = new CopyOnWriteArrayList<>();
     private final List<ActionClientFeedbackListener<T_ACTION_FEEDBACK>> callbackFeedbackTargets = new CopyOnWriteArrayList<>();
     private final List<ActionClientStatusListener> callbackStatusTargets = new CopyOnWriteArrayList<>();
 
+    /**
+     * This is set to `true` when all topics are connected for the first time and should never be reset.
+     * It can also be used to determine if the client is running and (seems to be) connected to a server.
+     */
+    private final AtomicBoolean hasOnConnectionBeenCalled = new AtomicBoolean(false);
+    private final Runnable onConnection;
+
     private final GoalIDGenerator goalIdGenerator;
-    private volatile boolean statusSubscriberFlag = false;
-    private final MasterStateClient masterStateClient;
+    private volatile boolean statusSubscriberFlagReception = false;
+
+    private final TopicSubscriberListener<GoalStatusArray> statusArrayTopicSubscriberListener;
+    private final TopicSubscriberListener<T_ACTION_RESULT> resultArrayTopicSubscriberListener;
+    private final TopicSubscriberListener<T_ACTION_FEEDBACK> feedbackArrayTopicSubscriberListener;
+
+    private final TopicPublisherListener<T_ACTION_GOAL> goalTopicPublisherListener;
+    private final TopicPublisherListener<GoalID> cancelTopicPublisherListener;
+    private final CopyOnWriteArraySet<String> topicsToBeConnectedSet;
+
+    private static final CopyOnWriteArraySet<String> createTopicConnectionSet(final String actionName) {
+        final CopyOnWriteArraySet<String> result = new CopyOnWriteArraySet<>();
+        result.add(ActionClient.getCancelTopicName(actionName));
+        result.add(ActionClient.getResultTopicName(actionName));
+        result.add(ActionClient.getStatusTopicName(actionName));
+        result.add(ActionClient.getFeedbackTopicName(actionName));
+        result.add(ActionClient.getGoalTopicName(actionName));
+        assert (result.size() == 5);
+        return result;
+    }
+
+    private final ConnectedNode connectedNode;
 
     /**
      * Constructor for an ActionClient object.
@@ -94,16 +133,79 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             , final String actionGoalType
             , final String actionFeedbackType
             , final String actionResultType) {
-        this.masterStateClient = new MasterStateClient(connectedNode, connectedNode.getMasterUri());
+        this(connectedNode, actionName, actionGoalType, actionFeedbackType, actionResultType, Runnables::doNothing);
+    }
 
+    /**
+     * Constructor for an ActionClient object.
+     *
+     * @param connectedNode      The node object that is connected to the ROS master.
+     * @param actionName         A string representing the name of this action. This name
+     *                           is used to publish the actionlib topics and should be agreed between server
+     *                           and the client.
+     * @param actionGoalType     A string with the type information for the action
+     *                           goal message.
+     * @param actionFeedbackType A string with the type information for the
+     *                           feedback message.
+     * @param actionResultType   A string with the type information for the result
+     *                           message.
+     * @param onConnection       A {@link Runnable} that will be called only once, when and if this client has detected a complete connection to the RosActionLib protocol
+     */
+    public ActionClient(
+            final ConnectedNode connectedNode
+            , final String actionName
+            , final String actionGoalType
+            , final String actionFeedbackType
+            , final String actionResultType
+            , final Runnable onConnection) {
+
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionName));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionGoalType));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionFeedbackType));
+        Preconditions.checkArgument(StringUtils.isNotBlank(actionResultType));
+        Preconditions.checkNotNull(onConnection);
         this.actionName = actionName;
         this.actionGoalType = actionGoalType;
         this.actionFeedbackType = actionFeedbackType;
         this.actionResultType = actionResultType;
         this.goalIdGenerator = new GoalIDGenerator(connectedNode);
+        this.connectedNode = connectedNode;
+        this.topicsToBeConnectedSet = ActionClient.createTopicConnectionSet(actionName);
+        this.onConnection = onConnection;
+        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getStatusTopicName(actionName), this::processOnConnection);
+        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getResultTopicName(actionName), this::processOnConnection);
+        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getFeedbackTopicName(actionName), this::processOnConnection);
+        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getGoalTopicName(actionName), this::processOnConnection);
+        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getCancelTopicName(actionName), this::processOnConnection);
         this.connect(connectedNode);
-        this.goalManager = new ClientGoalManager(new ActionGoal<T_ACTION_GOAL>());
     }
+
+    /**
+     * Internal method that
+     *
+     * @param topicName
+     */
+    private final void processOnConnection(final String topicName) {
+        //If the connection Runnable has been called ignore any calls to this function.
+        if (!this.hasOnConnectionBeenCalled.get()) {
+            Preconditions.checkArgument(StringUtils.isNotBlank(topicName));
+
+            final boolean existed = this.topicsToBeConnectedSet.remove(topicName);
+            if (existed && this.topicsToBeConnectedSet.isEmpty()) {
+                //On the last topic connection call the method, if it has not been called
+                if (this.hasOnConnectionBeenCalled.compareAndSet(false, true)) {
+                    this.onConnection.run();
+                }
+            }
+
+        } else {
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Internal method for:" + topicName + " Called multiple times. Node:" + (this.connectedNode == null ? null : this.connectedNode.getName()));
+            }
+        }
+    }
+
+
 
     /**
      * @param target the listener to add
@@ -121,7 +223,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     public final void addListeners(final Collection<ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT>> targets) {
         if (targets != null) {
-            for (final ActionClientListener target : targets) {
+            for (final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target : targets) {
                 this.addListener(target);
             }
         }
@@ -139,7 +241,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the feedback listener
      */
-    public final void addListener(final ActionClientFeedbackListener target) {
+    public final void addListener(final ActionClientFeedbackListener<T_ACTION_FEEDBACK> target) {
         if (target != null) {
             this.callbackFeedbackTargets.add(target);
         }
@@ -148,7 +250,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the result listener
      */
-    public final void addListener(final ActionClientResultListener target) {
+    public final void addListener(final ActionClientResultListener<T_ACTION_RESULT> target) {
         if (target != null) {
             this.callbackResultTargets.add(target);
         }
@@ -158,11 +260,12 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the client listener for status, result and feedback
      */
-    public final void removeListener(final ActionClientListener target) {
-
-        callbackStatusTargets.remove(target);
-        callbackFeedbackTargets.remove(target);
-        callbackResultTargets.remove(target);
+    public final void removeListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target) {
+        if (target != null) {
+            this.callbackStatusTargets.remove(target);
+            this.callbackFeedbackTargets.remove(target);
+            this.callbackResultTargets.remove(target);
+        }
     }
 
     /**
@@ -187,57 +290,58 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
-     * @param agMessage
+     * @param actionGoalMessage
      */
-    final void sendGoalWire(final T_ACTION_GOAL agMessage) {
-        this.goalManager.setGoal(agMessage);
-        this.goalPublisher.publish(agMessage);
+    final void sendGoalWire(final T_ACTION_GOAL actionGoalMessage) {
+        this.goalManager.setGoal(actionGoalMessage);
+        this.goalPublisher.publish(actionGoalMessage);
     }
 
     /**
      * Publish an action goal to the server. The type of the action goal message
      * is dependent on the application. A goal ID will be automatically generated.
      *
-     * @param agMessage The action goal message.
+     * @param actionGoalMessage The action goal message.
      */
-    public final ActionFuture<T_ACTION_GOAL, T_ACTION_FEEDBACK, T_ACTION_RESULT> sendGoal(final T_ACTION_GOAL agMessage) {
-        return sendGoal(agMessage, null);
+    public final ActionFuture<T_ACTION_GOAL, T_ACTION_FEEDBACK, T_ACTION_RESULT> sendGoal(final T_ACTION_GOAL actionGoalMessage) {
+        return sendGoal(actionGoalMessage, null);
     }
 
+
     /**
-     * Convenience method for retrieving the goal ID of a given action goal message.
+     * Convenience method for retrieving the actionGoalMessage ID of a given action actionGoalMessage message.
      *
-     * @param goal The action goal message from where to obtain the goal ID.
+     * @param actionGoalMessage The action actionGoalMessage message from where to obtain the actionGoalMessage ID.
      * @return Goal ID object containing the ID of the action message.
      * @see actionlib_msgs.GoalID
      */
-    public final GoalID getGoalId(final T_ACTION_GOAL goal) {
+    public final GoalID getGoalId(final T_ACTION_GOAL actionGoalMessage) {
 
-        final GoalID gid = ActionLibMessagesUtils.getSubMessageFromMessage(goal, "getGoalId");
+        final GoalID gid = ActionLibMessagesUtils.getSubMessageFromMessage(actionGoalMessage, "getGoalId");
         return gid;
     }
 
     /**
-     * Convenience method for setting the goal ID of an action goal message.
+     * Convenience method for setting the actionGoalMessage ID of an action actionGoalMessage message.
      *
-     * @param goal The action goal message to set the goal ID for.
-     * @param gid  The goal ID object.
+     * @param actionGoalMessage The action actionGoalMessage message to set the actionGoalMessage ID for.
+     * @param gid               The actionGoalMessage ID object.
      * @see actionlib_msgs.GoalID
      */
-    public final void setGoalId(final T_ACTION_GOAL goal, final GoalID gid) {
-        ActionLibMessagesUtils.setSubMessageFromMessage(goal, gid, "getGoalId");
+    public final void setGoalId(final T_ACTION_GOAL actionGoalMessage, final GoalID gid) {
+        ActionLibMessagesUtils.setSubMessageFromMessage(actionGoalMessage, gid, "getGoalId");
     }
 
     /**
      * Publish a cancel message. This instructs the action server to cancel the
      * specified goal.
      *
-     * @param id The GoalID message identifying the goal to cancel.
+     * @param goalIDd The GoalID message identifying the goal to cancel.
      * @see actionlib_msgs.GoalID
      */
-    public final void sendCancel(final GoalID id) {
+    public final void sendCancel(final GoalID goalIDd) {
         this.goalManager.cancelGoal();
-        this.cancelPublisher.publish(id);
+        this.cancelPublisher.publish(goalIDd);
     }
 
     /**
@@ -247,21 +351,23 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     private final void publishClient(final ConnectedNode connectedNode) {
         Objects.requireNonNull(connectedNode);
-        this.goalPublisher = connectedNode.newPublisher(actionName + "/goal", actionGoalType);
+        this.goalPublisher = connectedNode.newPublisher(this.getGoalTopicName(), actionGoalType);
         this.goalPublisher.setLatchMode(LATCH_MODE);
-        this.cancelPublisher = connectedNode.newPublisher(actionName + "/cancel", GoalID._TYPE);
+        this.goalPublisher.addListener(this.goalTopicPublisherListener);
+        this.cancelPublisher = connectedNode.newPublisher(this.getCancelTopicName(), GoalID._TYPE);
+        this.cancelPublisher.addListener(this.cancelTopicPublisherListener);
     }
 
     /**
      * Stop publishing our client topics.
      */
-    private final void unpublishClient() {
+    private final void unpublishClients() {
         if (this.goalPublisher != null) {
-            this.goalPublisher.shutdown(5, TimeUnit.SECONDS);
+            this.goalPublisher.shutdown(PUBLISHER_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             this.goalPublisher = null;
         }
         if (this.cancelPublisher != null) {
-            this.cancelPublisher.shutdown(5, TimeUnit.SECONDS);
+            this.cancelPublisher.shutdown(PUBLISHER_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             this.cancelPublisher = null;
         }
     }
@@ -276,13 +382,64 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param node The node object that is connected to the ROS master.
      */
     private final void subscribeToServer(final ConnectedNode node) {
-        this.serverResultSubscriber = node.newSubscriber(actionName + "/result", actionResultType);
-        this.serverFeedbackSubscriber = node.newSubscriber(actionName + "/feedback", actionFeedbackType);
-        this.serverStatusSubscriber = node.newSubscriber(actionName + "/status", GoalStatusArray._TYPE);
+        this.serverResultSubscriber = node.newSubscriber(this.getResultTopicName(), actionResultType);
+        this.serverFeedbackSubscriber = node.newSubscriber(this.getFeedbackTopicName(), actionFeedbackType);
+        this.serverStatusSubscriber = node.newSubscriber(this.getStatusTopicName(), GoalStatusArray._TYPE);
 
-        this.serverResultSubscriber.addMessageListener(message -> gotResult(message));
-        this.serverFeedbackSubscriber.addMessageListener(message -> gotFeedback(message));
-        this.serverStatusSubscriber.addMessageListener(message -> gotStatus(message));
+        Preconditions.checkState(this.resultArrayTopicSubscriberListener != null);
+        Preconditions.checkState(this.feedbackArrayTopicSubscriberListener != null);
+        Preconditions.checkState(this.statusArrayTopicSubscriberListener != null);
+
+        this.serverResultSubscriber.addSubscriberListener(this.resultArrayTopicSubscriberListener);
+        this.serverFeedbackSubscriber.addSubscriberListener(this.feedbackArrayTopicSubscriberListener);
+        this.serverStatusSubscriber.addSubscriberListener(this.statusArrayTopicSubscriberListener);
+
+        this.serverResultSubscriber.addMessageListener(this::gotResult);
+        this.serverFeedbackSubscriber.addMessageListener(this::gotFeedback);
+        this.serverStatusSubscriber.addMessageListener(this::gotStatus);
+
+
+    }
+
+    final String getResultTopicName() {
+        return ActionClient.getResultTopicName(actionName);
+    }
+
+    final String getFeedbackTopicName() {
+        return ActionClient.getFeedbackTopicName(actionName);
+    }
+
+    final String getStatusTopicName() {
+        return ActionClient.getStatusTopicName(actionName);
+    }
+
+    final String getGoalTopicName() {
+        return ActionClient.getGoalTopicName(actionName);
+    }
+
+    final String getCancelTopicName() {
+        return ActionClient.getCancelTopicName(actionName);
+    }
+
+
+    static final String getResultTopicName(final String actionName) {
+        return actionName + "/result";
+    }
+
+    private static final String getFeedbackTopicName(final String actionName) {
+        return actionName + "/feedback";
+    }
+
+    private static final String getStatusTopicName(final String actionName) {
+        return actionName + "/status";
+    }
+
+    private static final String getGoalTopicName(final String actionName) {
+        return actionName + "/goal";
+    }
+
+    private static final String getCancelTopicName(final String actionName) {
+        return actionName + "/cancel";
     }
 
     /**
@@ -307,21 +464,33 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
-     * Called whenever we get a message in the result topic.
+     * Called whenever we get a resultMessage in the result topic.
+     * Only addresses
      *
-     * @param message The result message received. The type of this message
-     *                depends on the application.
+     * @param resultMessage The result resultMessage received. The type of this resultMessage
+     *                      depends on the application.
      */
-    private final void gotResult(T_ACTION_RESULT message) {
-        ActionResult<T_ACTION_RESULT> ar = new ActionResult(message);
-        if (ar.getGoalStatusMessage().getGoalId().getId().equals(goalManager.getActionGoal().getGoalId())) {
-            goalManager.updateStatus(ar.getGoalStatusMessage().getStatus());
-        }
-        goalManager.resultReceived();
-        // Propagate the callback
-        for (final ActionClientResultListener<T_ACTION_RESULT> actionClientListener : this.callbackResultTargets) {
-            if (actionClientListener != null) {
-                actionClientListener.resultReceived(message);
+    private final void gotResult(final T_ACTION_RESULT resultMessage) {
+        final ActionResult<T_ACTION_RESULT> actionResultMessage = new ActionResult<>(resultMessage);
+        final GoalID goalID = actionResultMessage.getGoalStatusMessage().getGoalId();
+        if (this.goalManager.getActionGoal().getGoalId().equals(goalID.getId())) {
+            this.goalManager.updateStatus(actionResultMessage.getGoalStatusMessage().getStatus());
+
+            this.goalManager.resultReceived();
+            // Propagate the callback
+            for (final ActionClientResultListener<T_ACTION_RESULT> actionClientListener : this.callbackResultTargets) {
+                if (actionClientListener != null) {
+                    actionClientListener.resultReceived(resultMessage);
+                }
+            }
+            try {
+                this.sendCancel(goalID);
+            } catch (final Exception exception) {
+                LOGGER.error("Error while cancelling goal of received result" + ExceptionUtils.getStackTrace(exception));
+            }
+        } else {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Received and ignored GoalId:" + goalID.getId() + " because current client goal id==" + this.goalManager.getActionGoal().getGoalId());
             }
         }
     }
@@ -333,14 +502,15 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *                depends on the application.
      */
     private final void gotFeedback(final T_ACTION_FEEDBACK message) {
-        ActionFeedback<T_ACTION_FEEDBACK> af = new ActionFeedback(message);
+        ActionFeedback<T_ACTION_FEEDBACK> af = new ActionFeedback<>(message);
         if (af.getGoalStatusMessage().getGoalId().getId().equals(goalManager.getActionGoal().getGoalId())) {
             goalManager.updateStatus(af.getGoalStatusMessage().getStatus());
-        }
-        // Propagate the callback
-        for (final ActionClientFeedbackListener<T_ACTION_FEEDBACK> actionClientListener : this.callbackFeedbackTargets) {
-            if (actionClientListener != null) {
-                actionClientListener.feedbackReceived(message);
+
+            // Propagate the callback
+            for (final ActionClientFeedbackListener<T_ACTION_FEEDBACK> actionClientListener : this.callbackFeedbackTargets) {
+                if (actionClientListener != null) {
+                    actionClientListener.feedbackReceived(message);
+                }
             }
         }
     }
@@ -352,13 +522,20 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @see actionlib_msgs.GoalStatusArray
      */
     private final void gotStatus(final GoalStatusArray message) {
-        this.statusSubscriberFlag = true;
+        this.statusSubscriberFlagReception = true;
 
         // Find the status for our current goal
         final GoalStatus goalStatus = this.findStatus(message);
         if (goalStatus != null) {
             // update the goal status tracking
             this.goalManager.updateStatus(goalStatus.getStatus());
+            // Propagate the callback
+
+            for (final ActionClientStatusListener actionClientListener : this.callbackStatusTargets) {
+                if (actionClientListener != null) {
+                    actionClientListener.statusReceived(message);
+                }
+            }
         } else {
             if (LOGGER.isDebugEnabled()) {
                 if (message.getStatusList() != null && !message.getStatusList().isEmpty()) {
@@ -366,19 +543,11 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                 }
             }
         }
-        // Propagate the callback
-
-        for (final ActionClientStatusListener actionClientListener : this.callbackStatusTargets) {
-            if (actionClientListener != null) {
-                actionClientListener.statusReceived(message);
-            }
-        }
 
     }
 
     /**
-     * Walk through the status array and find the status for the action goal that
-     * we are interested in.
+     * Walk through the status array and find the status for the action goal for this client
      *
      * @param statusMessage The message with the goal status array
      *                      (actionlib_msgs.GoalStatusArray)
@@ -394,10 +563,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                 final String idToFind = this.goalManager.getActionGoal().getGoalId();
 
                 if (idToFind != null) {
-                    final List<GoalStatus> goalStatuses = statusList.stream().filter(goalStatusParam -> goalStatusParam.getGoalId().getId().equals(idToFind)).collect(Collectors.toList());
+                    final List<GoalStatus> goalStatuses = statusList.stream().filter(goalStatusParam -> goalStatusParam.getGoalId().getId().equals(idToFind)).toList();
                     final int goalStatusesSize = goalStatuses.size();
-                    if (LOGGER.isInfoEnabled() && (goalStatusesSize >= 0) && !statusList.isEmpty()) {
-                        LOGGER.info("Found [" + goalStatuses.size() + "] statuses for goal ID: " + idToFind + " action:[" + actionName + "]");
+                    if (LOGGER.isInfoEnabled() && !statusList.isEmpty()) {
+                        LOGGER.info("Found [" + goalStatusesSize + "] statuses for goal ID: " + idToFind + " action:[" + actionName + "]");
 
                     }
                     if (goalStatusesSize > 0) {
@@ -407,7 +576,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                                 for (final GoalStatus status : goalStatuses) {
                                     goalStatus = goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) >= 0 ? goalStatus : status;
                                     if (LOGGER.isTraceEnabled()) {
-                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() + "," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
+                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() +"("+this.goalStatusToString.getStatus(goalStatus.getStatus())+ ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
                                     }
 
                                 }
@@ -426,27 +595,104 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
-     * Publishes the client's topics and suscribes to the server's topics.
+     * Publishes the client's topics and subscribes to the server's topics.
      *
      * @param node The node object that is connected to the ROS master.
      */
     private final void connect(final ConnectedNode node) {
-        publishClient(node);
-        subscribeToServer(node);
+        this.subscribeToServer(node);
+
+        this.publishClient(node);
+    }
+
+    /**
+     * Waits for a given timeout period until the subscribers of the client are registered with the master.
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return true if client subscribers to the result, feedback and status topics have been registered before the timeout elapses, else false
+     */
+    public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean result = this.resultArrayTopicSubscriberListener.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.feedbackArrayTopicSubscriberListener.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.statusArrayTopicSubscriberListener.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        return result;
+    }
+
+    /**
+     * Waits for a given timeout period until the  publishers are detected in the server topics.
+     * Normally these should be the publishers of the server.
+     * This is a heuristic method
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
+     */
+    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean result = this.resultArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.feedbackArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.statusArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        return result;
+    }
+
+    /**
+     * Waits for a given timeout period until the  publishers are detected in the server topics.
+     * Normally these should be the publishers of the server.
+     * This is a heuristic method
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
+     */
+    public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean debugShown = false;
+        boolean result = this.goalTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
+            LOGGER.debug("waitForSubscriber goal did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        result = result && this.cancelTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (!result && !debugShown && LOGGER.isDebugEnabled()) {
+            debugShown = true;
+            LOGGER.debug("waitForSubscriber cancel did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+        }
+        return result;
+    }
+
+    /**
+     * Waits for a given timeout period until publishers and subscribers are detected in the server topics.
+     * Normally these should be the publishers and clients of the server
+     * This is a heuristic method
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return true if all publishers and clients required for the client/server connection are connected, else false
+     */
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        boolean result = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        result = result && this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        return result;
     }
 
 
     /**
      * Checks if the server is started at the time of the method call.
+     * This method involves network interaction
      * @return
      */
     public final boolean isActionServerStarted() {
-        final boolean result= this.statusSubscriberFlag
+        final Supplier<MasterStateClient> masterStateClientSupplier= Suppliers.memoize(()->new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri()));
+        final boolean result= this.statusSubscriberFlagReception
                 && this.goalPublisher.hasSubscribers()
                 && this.cancelPublisher.hasSubscribers()
-                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString())
-                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
-                  this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString());
+                && this.isTopicPublished(this.getFeedbackTopicName(),masterStateClientSupplier.get())
+//                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
+                 && this.isTopicPublished(this.getResultTopicName(),masterStateClientSupplier.get());
 
         return result;
     }
@@ -460,97 +706,109 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @return True if the action server was detected before the timeout and
      * false otherwise.
      */
-    public final boolean waitForActionServerToStart(final Duration timeout) {
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        final long durationInNanos = timeout.totalNsecs();
-        boolean result = false;
-        long tests = 0;
-        boolean goalHasSubscribers = false;
-        boolean cancelHasSubscribers = false;
-        boolean feedbackSubscriberFlag = false;
-        boolean resultSubscriberFlag = false;
-        while (!result && (durationInNanos <= 0 || stopwatch.elapsed(TimeUnit.NANOSECONDS) <= durationInNanos)) {
-            tests++;
-            if (!goalHasSubscribers) {
-                goalHasSubscribers = this.goalPublisher.hasSubscribers();
-            }
-            if (!cancelHasSubscribers) {
-                cancelHasSubscribers = this.cancelPublisher.hasSubscribers();
-            }
-            if (!feedbackSubscriberFlag) {
-                feedbackSubscriberFlag = this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
-            }
-            if (!resultSubscriberFlag) {
-                resultSubscriberFlag = this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString());
-            }
-            result = goalHasSubscribers
-                    && cancelHasSubscribers
-                    && this.statusSubscriberFlag
-                    && resultSubscriberFlag
-                    && feedbackSubscriberFlag;
+    @Deprecated
+    public final boolean waitForActionServerToStart(final long timeout, final TimeUnit timeUnit) {
+        if (this.hasOnConnectionBeenCalled.get()) {
+            return true;
+        } else {
+            final Stopwatch stopwatch = Stopwatch.createStarted();
 
-            try {
-                Thread.sleep(50);
+            boolean result = false;
+            long tests = 0;
+            boolean goalHasSubscribers = false;
+            boolean cancelHasSubscribers = false;
+            boolean feedbackSubscriberFlag = false;
+            boolean resultSubscriberFlag = false;
+            boolean statusSubscriberFlag = false;
+            while (!result && (stopwatch.elapsed(timeUnit) < timeout)) {
+                tests++;
+                final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
+                if (!goalHasSubscribers) {
+                    goalHasSubscribers = this.goalPublisher.hasSubscribers();
+                }
+                if (!cancelHasSubscribers) {
+                    cancelHasSubscribers = this.cancelPublisher.hasSubscribers();
+                }
+                if (!feedbackSubscriberFlag) {
+                    feedbackSubscriberFlag = this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString(), masterStateClient);
+                }
+                if (!resultSubscriberFlag) {
+                    resultSubscriberFlag = this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString(), masterStateClient);
+                }
+                if (!statusSubscriberFlag) {
+                    statusSubscriberFlag = this.isTopicPublished(this.serverStatusSubscriber.getTopicName().toString(), masterStateClient);
+                }
 
-            } catch (final Exception e) {
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(ExceptionUtils.getStackTrace(e));
+                result = goalHasSubscribers
+                        && cancelHasSubscribers
+                        && (this.statusSubscriberFlagReception || statusSubscriberFlag)
+                        && resultSubscriberFlag
+                        && feedbackSubscriberFlag;
+
+                if (result) {
+                    break;
+                } else {
+                    try {
+
+                        Thread.sleep(ON_CONNECTION_TIMEOUT_MILLIS);
+
+                    } catch (final Exception e) {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug(ExceptionUtils.getStackTrace(e));
+                        }
+                    }
+                }
+
+            }
+
+            if (!result) {
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error("[Could not connect to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
+                            + " [goalHasSubscribers:" + goalHasSubscribers
+                            + "] [cancelHasSubscribers:" + cancelHasSubscribers
+                            + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
+                            + "] [resultSubscriberFlag:" + resultSubscriberFlag
+                            + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
+                            + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
+
+                    );
+                }
+            } else {
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("[Connected to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
+                            + " [goalHasSubscribers:" + goalHasSubscribers
+                            + "] [cancelHasSubscribers:" + cancelHasSubscribers
+                            + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
+                            + "] [resultSubscriberFlag:" + resultSubscriberFlag
+                            + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
+                            + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
+
+                    );
                 }
             }
-
+            if (!result && LOGGER.isDebugEnabled()) {
+                LOGGER.debug(" [Server Started:" + result + "] [tests:" + tests + "] Goal Topic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "]");
+            }
+            return result;
         }
-
-        if (!result && LOGGER.isErrorEnabled()) {
-
-            LOGGER.error("[Could not connect to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
-                    + " [goalHasSubscribers:" + goalHasSubscribers
-                    + "] [cancelHasSubscribers:" + cancelHasSubscribers
-                    + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
-                    + "] [resultSubscriberFlag:" + resultSubscriberFlag
-                    + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
-            );
-
-        }
-        if (!result && LOGGER.isDebugEnabled()) {
-            LOGGER.debug(" [Server Started:" + result + "] [tests:" + tests + "] Goal Topic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "]");
-        }
-        return result;
     }
-
-    /**
-     * TODO this probably should be removed. It is not a good practice to override finalize.
-     */
-    protected final void finalize() {
-        this.disconnect();
-    }
-
-    /**
-     * Wait indefinately until an actionlib server is connected.
-     */
-    public final void waitForActionServerToStart() {
-        waitForActionServerToStart(new Duration(0));
-    }
-
 
     /**
      * @param topicName
      * @return
      */
-    private final boolean isTopicPublished(final String topicName) {
-        boolean result = false;
-        if (topicName != null) {
-            for (final TopicSystemState topicSystemState : this.masterStateClient.getSystemState().getTopics()) {
-                if (topicSystemState != null
-                        && topicName.equals(topicSystemState.getTopicName())
-                        && topicSystemState.getPublishers() != null
-                        && !topicSystemState.getPublishers().isEmpty()) {
-                    result = true;
-                    break;
-                }
+    private final boolean isTopicPublished(final String topicName, final MasterStateClient masterStateClient) {
+        for (final TopicSystemState topicSystemState : masterStateClient.getSystemState().getTopics()) {
+            if (topicSystemState != null
+                    && topicName.equals(topicSystemState.getTopicName())
+                    && topicSystemState.getPublishers() != null
+                    && !topicSystemState.getPublishers().isEmpty()) {
+                return true;
 
             }
+
         }
-        return result;
+        return false;
     }
 
 
@@ -558,7 +816,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @return
      */
     final ClientState getGoalState() {
-        return goalManager.getGoalState();
+        return this.goalManager.getGoalState();
     }
 
 
@@ -576,8 +834,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.callbackResultTargets.clear();
         this.callbackFeedbackTargets.clear();
         this.callbackStatusTargets.clear();
-        unpublishClient();
-        unsubscribeToServer();
+        this.unpublishClients();
+        this.unsubscribeToServer();
     }
 
 
@@ -598,8 +856,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                 .add("callbackFeedbackTargets=" + callbackFeedbackTargets)
                 .add("callbackStatusTargets=" + callbackStatusTargets)
                 .add("goalIdGenerator=" + goalIdGenerator)
-                .add("statusSubscriberFlag=" + statusSubscriberFlag)
-                .add("masterStateClient=" + masterStateClient)
+                .add("statusSubscriberFlag=" + statusSubscriberFlagReception)
+                .add("connectedNode=" + connectedNode)
                 .toString();
     }
 }

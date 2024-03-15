@@ -57,7 +57,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     static final <T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message>
     ActionFuture<T_GOAL, T_FEEDBACK, T_RESULT>
-    createFromGoal(ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient, T_GOAL goal) {
+    createFromGoal(final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient,final  T_GOAL goal) {
         final GoalID goalId = actionClient.getGoalId(goal);
         final ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT> result = new ActionClientFuture<>(actionClient, goalId);
         if (LOGGER.isWarnEnabled() && actionClient.isActive()) {
@@ -79,6 +79,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
         this.goalid = goalID;
     }
 
+
     /**
      * @return
      */
@@ -96,11 +97,12 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
     }
 
     /**
-     * @param bln is currently ignored
-     * @return always returns true
+     * @param mayInterruptIfRunning is currently ignored
+     *
+     * @return returns true if cancel was send, false if not send
      */
     @Override
-    public final boolean cancel(final boolean bln) {
+    public final boolean cancel(final boolean mayInterruptIfRunning) {
         this.actionClient.sendCancel(this.goalid);
         this.goalManager.cancelGoal();
         return true;
@@ -185,8 +187,8 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
     public final void feedbackReceived(final T_FEEDBACK t_feedback) {
         final ActionFeedback actionFeedback = new ActionFeedback(t_feedback);
 
-        if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(goalid.getId())) {
-            goalManager.updateStatus(actionFeedback.getGoalStatusMessage().getStatus());
+        if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(this.goalid.getId())) {
+            this.goalManager.updateStatus(actionFeedback.getGoalStatusMessage().getStatus());
             this.latestFeedback = t_feedback;
         }
 

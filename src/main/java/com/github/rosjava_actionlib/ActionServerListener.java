@@ -19,6 +19,8 @@ package com.github.rosjava_actionlib;
 import actionlib_msgs.GoalID;
 import org.ros.internal.message.Message;
 
+import java.util.Optional;
+
 
 /**
  * Listener interface to receive the incoming messages from the ActionLib client.
@@ -50,8 +52,8 @@ public interface ActionServerListener<T_ACTION_GOAL extends Message> {
      * This method can be also used to trigger that depend on accepting or rejecting the goal.
      *
      * @param goal The action goal received.
-     * @return The implementer must return true if he accepts the goal or false
+     * @return The implementer must return true if he accepts the goal or false. If it is empty, it means that the implementer will manually handle the acceptance or rejection.
      * otherwise.
      */
-    boolean acceptGoal(T_ACTION_GOAL goal);
+    Optional<Boolean> acceptGoal(T_ACTION_GOAL goal);
 }

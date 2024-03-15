@@ -1,33 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--Author: Spyros Koukas-->
 <Configuration status="ERROR">
-<Properties>
-	</Properties>
-	<Appenders>
-		<Console name="STDOUT" target="SYSTEM_OUT">
-			<PatternLayout pattern="%d{yy.MM.dd-HH:mm:ss.SSS}[%p]%F(%L)%M-%m%n" />
-		</Console>
-	</Appenders>
-	<Loggers>
-		<Root level="TRACE">
-			<AppenderRef ref="STDOUT" />
-		</Root>
+    <Properties>
+    </Properties>
+    <Appenders>
+        <Console name="STDOUT" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yy.MM.dd-HH:mm:ss.SSS}[%p]%F(%L)%M-%m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="TRACE">
+            <AppenderRef ref="STDOUT"/>
+        </Root>
 
 
-		<Logger name="org.apache" level="TRACE" />
-		<Logger name="org.ros" level="TRACE" />
-		<Logger name="org.apache.http.impl.conn.Wire" level="TRACE"/>
-
-		<Logger name="httpclient.wire.header" level="ERROR"/>
-		<Logger name="httpclient.wire.content" level="ERROR"/>
-		<Logger name="com.github.rosjava_actionlib" level="DEBUG"/>
-		<Logger name="com.github.rosjava_actionlib.ActionClient" level="DEBUG"/>
-		<Logger name="com.github.rosjava_actionlib.FutureBasedClientTest" level="TRACE"/>
-		<Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="DEBUG"/>
-		<Logger name="org.apache.commons.httpclient" level="ERROR"/>
-		<Logger name="org.apache.commons.httpclient.Wire" level="ERROR"/>
+        <Logger name="org.apache" level="ERROR"/>
+        <Logger name="org.ros" level="ERROR"/>
 
 
+        <Logger name="javax.transaction.TransactionManager" level="ERROR"/>
+        <Logger name="org.apache" level="ERROR"/>
+        <Logger name="org.apache.logging.log4j2" level="ERROR"/>
+        <Logger name="org.apache.http.impl.conn.Wire" level="ERROR"/>
+        <Logger name="httpclient.wire.header" level="ERROR"/>
+        <Logger name="httpclient.wire.content" level="ERROR"/>
 
-	</Loggers>
+        <Logger name="com.github.rosjava_actionlib" level="TRACE"/>
+        <Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="TRACE"/>
+        <Logger name="com.github.rosjava_actionlib.TopicParticipantListener" level="ERROR"/>
+
+        <!--<Logger name="com.github.rosjava_actionlib.ActionClient" level="DEBUG"/>
+
+        <Logger name="com.github.rosjava_actionlib.FibonacciFutureBasedClientTestlientTest" level="TRACE"/>
+        <Logger name="com.github.rosjava_actionlib.ClientStateMachine" level="DEBUG"/>-->
+
+    </Loggers>
 </Configuration>

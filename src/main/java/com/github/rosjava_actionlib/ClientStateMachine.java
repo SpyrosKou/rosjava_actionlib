@@ -17,9 +17,10 @@
 
 package com.github.rosjava_actionlib;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,11 +32,11 @@ import java.util.stream.Collectors;
  * @author Spyros Koukas
  */
 final class ClientStateMachine {
-
+    private static final Set<ClientState> CANCELABLE_STATES = Set.of(ClientState.WAITING_FOR_GOAL_ACK, ClientState.PENDING, ClientState.ACTIVE);
 
     private ClientState latestGoalStatus = null;
     private ClientState state = ClientState.UNKNOWN_STATE;
-    private final Log log = LogFactory.getLog(ActionClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     /**
      * A ClientStateMachine should always have an existing starting state.
@@ -64,8 +65,8 @@ final class ClientStateMachine {
      */
     final synchronized void setState(final ClientState state) {
         Objects.requireNonNull(state);
-        if(log.isInfoEnabled()) {
-            log.info("ClientStateMachine - State changed from " + this.state + " to " + state);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("ClientStateMachine - State changed from " + this.state + " to " + state);
         }
         this.state = state;
     }
@@ -95,14 +96,22 @@ final class ClientStateMachine {
         // transition to next states
         final List<ClientState> nextStates = this.getTransition(goalStatus);
 
-        if (this.log.isTraceEnabled()) {
-            this.log.trace("State transition invoked. GoalStatus:" + goalStatus);
-        }
+        if (!nextStates.isEmpty()) {
+            if (nextStates.size() == 1 && nextStates.contains(this.state)) {
+                if (this.LOGGER.isTraceEnabled()) {
+                    this.LOGGER.trace("Maintaining ClientState:" + this.state + " for GoalStatus:" + goalStatus);
+                }
+            } else {
+                for (int i = 0; i < nextStates.size(); i++) {
+                    final ClientState state = nextStates.get(i);
+                    if (this.LOGGER.isTraceEnabled()) {
+                        this.LOGGER.trace("Transition" + (i + 1) + " of " + nextStates.size() + " from ClientState:" + this.state + " to ClientState: " + state + " on GoalStatus:" + goalStatus);
+                    }
 
-        for (final ClientState state : nextStates) {
-            this.state = state;
+                    this.state = state;
+                }
+            }
         }
-
     }
 
     /**
@@ -110,7 +119,6 @@ final class ClientStateMachine {
      * goal state.
      *
      * @param goalStatus The current status of the tracked goal.
-     *
      * @return A list with the list of next states. The states should be
      * transitioned in order. This is necessary because if we loose a state update
      * we might still be able to infer the actual transition history that took us
@@ -122,7 +130,6 @@ final class ClientStateMachine {
 
     /**
      * @param goalStatus
-     *
      * @return
      */
     private final List<ClientState> getTransition(int goalStatus) {
@@ -412,13 +419,7 @@ final class ClientStateMachine {
      * @return True if the goal can be cancelled, false otherwise.
      */
     final boolean cancel() {
-        final ArrayList<ClientState> cancellableStates =
-                new ArrayList<>(
-                        Arrays.asList(ClientState.WAITING_FOR_GOAL_ACK
-                                , ClientState.PENDING,
-                                ClientState.ACTIVE)
-                );
-        final boolean shouldCancel = cancellableStates.contains(state);
+        final boolean shouldCancel = CANCELABLE_STATES.contains(state);
 
         if (shouldCancel) {
             this.state = ClientState.WAITING_FOR_CANCEL_ACK;

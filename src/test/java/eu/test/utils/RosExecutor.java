@@ -18,8 +18,6 @@ package eu.test.utils;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.ros.node.DefaultNodeMainExecutor;
 import org.ros.node.NodeConfiguration;
 import org.ros.node.NodeMain;
@@ -100,7 +98,26 @@ public final class RosExecutor {
 
     }
 
+    /**
+     * @param nodeMain
+     * @param nodeName
+     *
+     *
+     * @return
+     */
+    public final NodeMain startNodeMainPrivate(final NodeMain nodeMain, final String nodeName) {
 
+        try {
+
+            startNodeMainPrivate(this.getOrCreateNodeMainExecutor(),nodeMain, nodeName);
+            return nodeMain;
+        } catch (final Exception e) {
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
+            throw new IllegalArgumentException(e);
+        }
+
+
+    }
 
 
     /**
@@ -159,6 +176,36 @@ public final class RosExecutor {
         }
 
     }
+    /**
+     * The core method
+     *
+     * @param executor
+     * @param nodeMain
+     * @param nodeName
+     *
+     */
+    private static void startNodeMainPrivate(final NodeMainExecutor executor, final NodeMain nodeMain, final String nodeName) {
 
+
+        Objects.requireNonNull(nodeMain);
+        Objects.requireNonNull(executor);
+
+        Preconditions.checkArgument(StringUtils.isNotBlank(nodeName), "nodeName should not be null or empty.");
+
+
+        // Load the Class
+        try {
+
+            final NodeConfiguration nodeConfiguration = NodeConfiguration. newPrivate();
+
+            executor.execute(nodeMain, nodeConfiguration);
+
+        } catch (final Exception e) {
+            final RuntimeException rte = new RuntimeException("Error while trying to start node: " + nodeMain, e);
+            LOGGER.error("Throwing:" + ExceptionUtils.getStackTrace(rte));
+            throw rte;
+        }
+
+    }
 
 }

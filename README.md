@@ -13,6 +13,12 @@ A pure java implementation of [actionlib](http://wiki.ros.org/actionlib) for [ro
     * Refactored code, grouping together common elements
 5. Robust detection of started ActionServer in waitForActionServerToStart
 6. Targeted to be used as part of other Java / ROS Java applications via gradle or maven, similar to other java libraries
+
+Other Changes:   
+1. `ActionClient` only responds to messages for the same GoalId.
+2. `ActionClient` will cancel a `GoalId` after receiving it, to allow the server to remove it from the `GoalStatusArray`
+3. `ActionClient` can call a [`Runnable`](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Runnable.html) once and only if and when connected to the ActionLib protocol.
+
  
 ## Requirements:
 * Java 11 or greater (OpenJDK should work).
@@ -74,7 +80,7 @@ The test client will connect to the fibonacci server and send it a goal. It
 should then receive feedback from the server and a final response. The output
 should look something like this:
 ```
-Loading node class: com.github.rosjava_actionlib.SimpleClient
+Loading node class: com.github.rosjava_actionlib.FibonacciActionLibClient
 
 Waiting for action server to start...
 Action server started.
