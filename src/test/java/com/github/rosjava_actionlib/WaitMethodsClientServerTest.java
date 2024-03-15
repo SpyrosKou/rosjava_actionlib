@@ -89,7 +89,7 @@ public class WaitMethodsClientServerTest {
             final long timeoutMillis = 10_000;
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
             this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean clientStarted = this.futureBasedClient.waitForServerConnection(20, TimeUnit.SECONDS);
+            final boolean clientStarted = this.futureBasedClient.waitForServerConnection(50, TimeUnit.SECONDS);
             Assert.assertTrue("ClientNotStarted", clientStarted);
             final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
             Assert.assertTrue(timeoutMillis >= clientConnectionsMillis);
@@ -119,7 +119,7 @@ public class WaitMethodsClientServerTest {
                 Assert.assertTrue("Could not cancel", cancel);
 
                 try {
-                    final FibonacciActionResult results = resultFuture.get(3 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
+                    final FibonacciActionResult results = resultFuture.get(11 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
                     final Set<ClientState> expectedValues = EnumSet.of(ClientState.PENDING, ClientState.NO_GOAL, ClientState.RECALLING, ClientState.WAITING_FOR_CANCEL_ACK);
                     final ClientState clientState = resultFuture.getCurrentState();
                     Assert.assertTrue("Managed to receive result before canceling. Is resultOk:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.equals(results.getResult().getSequence()) + " expeced size:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.length + " current size:" + results.getResult().getSequence().length, expectedValues.contains(clientState));

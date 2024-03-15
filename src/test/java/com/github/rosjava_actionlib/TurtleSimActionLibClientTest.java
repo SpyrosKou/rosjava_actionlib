@@ -98,7 +98,7 @@ public class TurtleSimActionLibClientTest {
     public void testTurtleAsync() {
         try {
             LOGGER.trace("Starting Tasks");
-            testClient.getShapeActionClient().waitForActionServerToStart(1, TimeUnit.DAYS);
+            testClient.getShapeActionClient().waitForServerConnection(1, TimeUnit.DAYS);
             final ShapeActionGoal goalAction = testClient.getShapeActionClient().newGoalMessage();
             goalAction.getGoal().setEdges(3);
             goalAction.getGoal().setRadius(1f);

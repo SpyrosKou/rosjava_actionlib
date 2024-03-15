@@ -79,7 +79,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
     public void waitForStart() {
         while (!this.isStarted) {
             if (this.getShapeActionClient() != null) {
-                this.getShapeActionClient().waitForActionServerToStart(1,TimeUnit.DAYS);
+                this.getShapeActionClient().waitForServerConnection(1,TimeUnit.DAYS);
             }
             sleep(5);
         }
@@ -106,7 +106,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
         // Attach listener for the callbacks
 
         LOGGER.trace("\nWaiting for action server to start...");
-        final boolean serverStarted = shapeActionClient.waitForActionServerToStart(timeout, timeUnit);
+        final boolean serverStarted = shapeActionClient.waitForServerConnection(timeout, timeUnit);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {

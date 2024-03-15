@@ -70,10 +70,10 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
             LOGGER.trace("Waiting for action server to start...");
             try {
                 final boolean nodeStarted = this.connectionCountDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
-                final boolean clientStarted = nodeStarted && this.actionClient.waitForActionServerToStart(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
-                final boolean serverConnection = clientStarted && this.actionClient.waitForServerConnection(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+
+                final boolean serverConnection = this.actionClient.waitForServerConnection(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Action client started:[" + clientStarted + "] serverConnected:[" + serverConnection + "] nodeStarted:[" + nodeStarted + "]");
+                    LOGGER.trace("Action client serverConnected:[" + serverConnection + "] nodeStarted:[" + nodeStarted + "]");
                 }
                 if (serverConnection) {
                     this.connectedToServerCache.compareAndSet(false, true);

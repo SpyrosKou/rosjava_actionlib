@@ -92,7 +92,7 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
         // Attach listener for the callbacks
 
         LOGGER.trace("Waiting for action server to start...");
-        final boolean serverStarted = actionClient.waitForActionServerToStart(200, TimeUnit.MILLISECONDS);
+        final boolean serverStarted = actionClient.waitForServerConnection(200, TimeUnit.MILLISECONDS);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
@@ -125,7 +125,7 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
     public final FibonacciActionResult getFibonnaciBlockingWithCancelation(final int order) throws ExecutionException, InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         LOGGER.trace("Waiting for action server to start...");
-        final boolean serverStarted = this.actionClient.waitForActionServerToStart(200, TimeUnit.MILLISECONDS);
+        final boolean serverStarted = this.actionClient.waitForServerConnection(200, TimeUnit.MILLISECONDS);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {

@@ -698,6 +698,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
+     * @deprecated use {@link ActionClient#waitForServerConnection}
      * Wait for an actionlib server to connect.
      *
      * @param timeout The maximum amount of time to wait for an action server. If
