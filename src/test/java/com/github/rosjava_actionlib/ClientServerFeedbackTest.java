@@ -12,33 +12,33 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */package com.github.rosjava_actionlib;
+ */
+package com.github.rosjava_actionlib;
 
+import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerFeedbackTest {
 
-private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private static final TestProperties testProperties=TestProperties.getFromDefaultFile();
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final TestProperties testProperties = TestProperties.getFromDefaultFile();
     private static final String ROS_HOST_IP = testProperties.getRosHostIp();
     private static final int ROS_MASTER_URI_PORT = testProperties.getRosMasterUriPort();
     private static final String ROS_MASTER_URI = testProperties.getRosMasterUri();
     private RosCore rosCore = null;
 
     private ActionLibClientFeedbackListener actionLibClientFeedbackListener = null;
-    private ActionLibServerFeedbackListener actionLibServerFeedbackListener = null;
+    private AsyncGoalRunnerActionLibServer asyncGoalRunnerActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
     @Before
@@ -47,12 +47,12 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
             this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            this.actionLibServerFeedbackListener = new ActionLibServerFeedbackListener();
+            this.asyncGoalRunnerActionLibServer = new AsyncGoalRunnerActionLibServer(false);
 
             this.actionLibClientFeedbackListener = new ActionLibClientFeedbackListener();
 
-            this.rosExecutor.startNodeMain(actionLibServerFeedbackListener, actionLibServerFeedbackListener.getDefaultNodeName().toString(),  ROS_MASTER_URI);
-            this.rosExecutor.startNodeMain(actionLibClientFeedbackListener, actionLibClientFeedbackListener.getDefaultNodeName().toString(),  ROS_MASTER_URI);
+            this.rosExecutor.startNodeMain(asyncGoalRunnerActionLibServer, asyncGoalRunnerActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
+            this.rosExecutor.startNodeMain(actionLibClientFeedbackListener, actionLibClientFeedbackListener.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.actionLibClientFeedbackListener.waitForStart();
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
@@ -62,63 +62,48 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     }
 
 
-
     @Test
     public void testNormal() {
-
-
-            try {
-
-                LOGGER.trace("Starting Tasks");
-
-                actionLibClientFeedbackListener.getFibonnaciBlocking(10);
-                LOGGER.trace("Falling asleep");
-
-                try {
-                    Thread.sleep(10_000);
-                } catch (final Exception er3) {
-                    LOGGER.error(ExceptionUtils.getStackTrace(er3));
-                }
-                LOGGER.trace("Awaken");
-
-                LOGGER.trace("Stopping");
-
-
-        } catch (final Exception e) {
-            LOGGER.error(ExceptionUtils.getStackTrace(e));
-        }
-    }
-
-    @Test
-    public void testCancel() {
 
 
         try {
 
             LOGGER.trace("Starting Tasks");
 
-            actionLibClientFeedbackListener.getFibonnaciBlockingWithCancelation(10);
-            LOGGER.trace("Falling asleep");
+            final FibonacciActionResult result=actionLibClientFeedbackListener.getFibonnaciBlocking(TestInputs.TEST_INPUT);
+            Assert.assertNotNull("Result was null",result);
 
-            try {
-                Thread.sleep(10_000);
-            } catch (final Exception er3) {
-                LOGGER.error(ExceptionUtils.getStackTrace(er3));
-            }
-            LOGGER.trace("Awaken");
-
+            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
             LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
+
+            Assert.fail(ExceptionUtils.getStackTrace(e));
+        }
+    }
+
+    @Test
+    public void testCancel() {
+        try {
+
+            LOGGER.trace("Starting Tasks");
+
+            final FibonacciActionResult result = actionLibClientFeedbackListener.getFibonnaciBlockingWithCancelation(TestInputs.TEST_INPUT);
+
+            LOGGER.trace("Finished");
+
+
+        } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
+            Assert.fail(ExceptionUtils.getStackTrace(e));
         }
     }
 
     @After
     public void after() {
         try {
-            rosExecutor.stopNodeMain(actionLibServerFeedbackListener);
+            rosExecutor.stopNodeMain(asyncGoalRunnerActionLibServer);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -144,7 +129,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
         this.actionLibClientFeedbackListener = null;
-        this.actionLibServerFeedbackListener = null;
+        this.asyncGoalRunnerActionLibServer = null;
         this.rosCore = null;
     }
 
