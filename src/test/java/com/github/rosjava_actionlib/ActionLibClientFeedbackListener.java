@@ -29,7 +29,10 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
 /**
@@ -39,6 +42,7 @@ import java.util.concurrent.TimeUnit;
  * @author Spyros Koukas
  */
 class ActionLibClientFeedbackListener extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
+    private final GoalStatusToString goalStatusToString=new GoalStatusToString();
     static {
         // comment this line if you want logs activated
         System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
@@ -57,14 +61,13 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
     }
 
     /**
-     *
      * @return true if the node is started now
      */
-    public final boolean isStarted(){
+    public final boolean isStarted() {
         return this.isStarted;
     }
+
     /**
-     *
      * @return isStarted
      **/
     public void waitForStart() {
@@ -80,22 +83,21 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
     }
 
     /**
-     *Sample method only to test client communication.
+     * @deprecated Legacy
+     * Sample method only to test client communication.
      */
-    public void getFibonnaciBlocking(final int order) {
-        final Stopwatch stopwatch=Stopwatch.createStarted();
-        boolean serverStarted;
-
-
+    @Deprecated
+    public final FibonacciActionResult getFibonnaciBlocking(final int order) throws ExecutionException, InterruptedException, TimeoutException {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
         // Attach listener for the callbacks
 
         LOGGER.trace("Waiting for action server to start...");
-        serverStarted = actionClient.waitForActionServerToStart(200, TimeUnit.MILLISECONDS);
+        final boolean serverStarted = actionClient.waitForActionServerToStart(200, TimeUnit.MILLISECONDS);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
             LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " milliseconds!");
-//            System.exit(1);
+            throw new RuntimeException("Not Connected");
         }
 
         // Create Fibonacci goal message
@@ -104,62 +106,60 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
         LOGGER.trace("Sending goal...");
-        actionClient.sendGoal(goalMessage);
+        final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.actionClient.sendGoal(goalMessage);
         final GoalID gid1 = goalMessage.getGoalId();
         LOGGER.trace("Sent goal with ID: " + gid1.getId());
         LOGGER.trace("Waiting for goal to complete...");
 
-        while (actionClient.getGoalState() != ClientState.DONE) {
-            sleep(1);
-        }
+        final FibonacciActionResult result = resultFuture.get(100, TimeUnit.SECONDS);
+
         LOGGER.trace("Goal completed!\n");
+        return result;
     }
 
     /**
-     *Sample method only to test client communication.
+     * @deprecated legacy test
+     * Sample method only to test client communication.
      */
-    public void getFibonnaciBlockingWithCancelation(final int order) {
-        final Stopwatch stopwatch=Stopwatch.createStarted();
-        boolean serverStarted;
-
-
-        // Attach listener for the callbacks
-
+    @Deprecated
+    public final FibonacciActionResult getFibonnaciBlockingWithCancelation(final int order) throws ExecutionException, InterruptedException {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
         LOGGER.trace("Waiting for action server to start...");
-        serverStarted = actionClient.waitForActionServerToStart(200,TimeUnit.MILLISECONDS);
+        final boolean serverStarted = this.actionClient.waitForActionServerToStart(200, TimeUnit.MILLISECONDS);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
             LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " milliseconds!");
-//            System.exit(1);
+            throw new RuntimeException("Not connected");
         }
 
         // Create Fibonacci goal message
-        final FibonacciActionGoal goalMessage = (FibonacciActionGoal) actionClient.newGoalMessage();
+        final FibonacciActionGoal goalMessage = (FibonacciActionGoal) this.actionClient.newGoalMessage();
         final FibonacciGoal fibonacciGoal = goalMessage.getGoal();
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
 
         LOGGER.trace("Sending a new goal...");
-        actionClient.sendGoal(goalMessage);
+        final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resulFuture = this.actionClient.sendGoal(goalMessage);
         final GoalID gid2 = goalMessage.getGoalId();
         LOGGER.trace("Sent goal with ID: " + gid2.getId());
         LOGGER.trace("Cancelling this goal...");
-        actionClient.sendCancel(gid2);
-        while (actionClient.getGoalState() != ClientState.DONE) {
-            sleep(1);
-        }
+        this.actionClient.sendCancel(gid2);
+
+        final var result = resulFuture.get();
+
         LOGGER.trace("Goal cancelled successfully.\n");
+        return result;
 
 
     }
 
     @Override
     public void onStart(ConnectedNode node) {
-        actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, ActionLibServerFeedbackListener.DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+        this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, AsyncGoalRunnerActionLibServer.DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
 //       Log log = node.getLog();
         this.isStarted = true;
-        actionClient.addListener(this);
+        this.actionClient.addListener(this);
 
 //        System.exit(0);
     }
@@ -191,7 +191,7 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
         final StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("Got Fibonacci feedback sequence: ");
         for (int i = 0; i < sequence.length; i++) {
-            stringBuilder.append(Integer.toString(sequence[i]));
+            stringBuilder.append(sequence[i]);
             stringBuilder.append("");
         }
         LOGGER.trace(stringBuilder.toString());
@@ -199,21 +199,23 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
 
     /**
      * This is invoked periodically from the server.
+     *
      * @param status The status message received from the server.
      */
     @Override
     public void statusReceived(final GoalStatusArray status) {
-        List<GoalStatus> statusList = status.getStatusList();
-        for (GoalStatus gs : statusList) {
-            LOGGER.trace("GoalID: " + gs.getGoalId().getId() + " -- GoalStatus: " + gs.getStatus() + " -- " + gs.getText());
+        if (LOGGER.isTraceEnabled()) {
+            final StringJoiner stringJoiner=new StringJoiner(",","Status:{","}");
+            for (final GoalStatus goalStatus : status.getStatusList()) {
+//                LOGGER.trace("GoalID: " + gs.getGoalId().getId() + " -- GoalStatus: " + gs.getStatus() + " -- " + gs.getText());
+                stringJoiner.add("GoalID: " + goalStatus.getGoalId().getId() + " -- GoalStatus: " + goalStatus.getStatus()+"("+this.goalStatusToString.getStatus(goalStatus.getStatus()) + ") -- " + goalStatus.getText());
+            }
+            LOGGER.trace(stringJoiner.toString());
         }
-        LOGGER.trace("Goal Current state: " + actionClient.getGoalState());
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("Goal Current state: " + actionClient.getGoalState());
+        }
+
     }
 
-    private void sleep(long msec) {
-        try {
-            Thread.sleep(msec);
-        } catch (InterruptedException ex) {
-        }
-    }
 }
