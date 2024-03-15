@@ -22,6 +22,7 @@ import actionlib_msgs.GoalStatus;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
+import com.google.common.util.concurrent.Runnables;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
@@ -86,6 +87,10 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     @Override
     public final void goalReceived(final FibonacciActionGoal goal) {
         LOGGER.trace("Goal received.");
+        final FibonacciActionFeedback feedback=this.actionServer.newFeedbackMessage();
+        feedback.getStatus().setStatus(GoalStatus.ACTIVE);
+        this.actionServer.sendFeedback(feedback);
+
         final FibonacciActionResult result = this.actionServer.newResultMessage();
         copyGoal(goal.getGoalId(), result.getStatus().getGoalId());
         final int input = goal.getGoal().getOrder();
@@ -93,13 +98,18 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
             LOGGER.trace("Renaming Thread" + Thread.currentThread().getName());
             Thread.currentThread().setName("GoalReceived " + Thread.currentThread().getName());
         }
-        final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goal), () -> result.getStatus().setStatus(GoalStatus.ABORTED));
+        final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goal), Runnables::doNothing);
         result.getResult().setSequence(output);
 
-        this.actionServer.sendResult(result);
+
+
         if (this.shouldCancelGoal(goal)) {
             this.cancelledGoalIds.remove(goal.getGoalId().getId());
+        }else{
+            result.getStatus().setStatus(GoalStatus.SUCCEEDED);
+            this.actionServer.setSucceed(goal.getGoalId().getId());
         }
+        this.actionServer.sendResult(result);
     }
 
     private final boolean shouldCancelGoal(final FibonacciActionGoal goal) {
@@ -115,6 +125,7 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     public final void cancelReceived(final GoalID id) {
         this.cancelledGoalIds.add(id.getId());
         LOGGER.trace("Cancel received.");
+        this.actionServer.setAbort(id.getId());
     }
 
     @Override
