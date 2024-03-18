@@ -58,7 +58,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
         return GraphName.of("fibonacci_future_client");
     }
 
-    private final CountDownLatch connectionCountDownLatch = new CountDownLatch(1);
+    private final CountDownLatch onStartCountDownLatch = new CountDownLatch(1);
     private final AtomicBoolean connectedToServerCache = new AtomicBoolean(false);
 
     public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
@@ -69,7 +69,8 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
 
             LOGGER.trace("Waiting for action server to start...");
             try {
-                final boolean nodeStarted = this.connectionCountDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+
+                final boolean nodeStarted = this.onStartCountDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
 
                 final boolean serverConnection = this.actionClient.waitForServerConnection(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
                 if (LOGGER.isTraceEnabled()) {
@@ -109,7 +110,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
         this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE,this::getOnConnection);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
-        this.connectionCountDownLatch.countDown();
+        this.onStartCountDownLatch.countDown();
     }
 
     /**
