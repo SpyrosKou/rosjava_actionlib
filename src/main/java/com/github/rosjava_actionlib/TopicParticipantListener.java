@@ -107,8 +107,15 @@ abstract class TopicParticipantListener {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (!this.isRegistered()) {
             try {
-                this.registrationCountDownLatch.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-                return this.isRegistered();
+                final long effectiveTimeout = Math.max(timeout - stopwatch.elapsed(timeUnit), 0);
+                if (effectiveTimeout > 0) {
+                    this.registrationCountDownLatch.await(effectiveTimeout, timeUnit);
+                }
+                final boolean result = this.isRegistered();
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Registering timed out. Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+                }
+                return result;
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
@@ -117,7 +124,7 @@ abstract class TopicParticipantListener {
         }
         final boolean result = this.isRegistered();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+            LOGGER.trace("Registered in time. Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
         }
         return result;
     }

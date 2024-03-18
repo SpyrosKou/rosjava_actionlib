@@ -83,7 +83,7 @@ public class ConnectionNotificationMethodClientTest {
 
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
             this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
-            final boolean clientStarted = futureBasedClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+            final boolean clientStarted = this.futureBasedClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
             LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
             Assert.assertTrue("Client Not Started", clientStarted);
             final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
