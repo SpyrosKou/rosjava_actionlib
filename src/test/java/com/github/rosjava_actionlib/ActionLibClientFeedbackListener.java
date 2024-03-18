@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -42,7 +43,8 @@ import java.util.concurrent.TimeoutException;
  * @author Spyros Koukas
  */
 class ActionLibClientFeedbackListener extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
-    private final GoalStatusToString goalStatusToString=new GoalStatusToString();
+    private final GoalStatusToString goalStatusToString = new GoalStatusToString();
+
     static {
         // comment this line if you want logs activated
         System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
@@ -50,9 +52,9 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+    private final CountDownLatch connectCountDownLatch = new CountDownLatch(1);
 
     private ActionClient actionClient = null;
-    private volatile boolean isStarted = false;
 
 
     @Override
@@ -60,26 +62,22 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
         return GraphName.of("fibonacci_test_client");
     }
 
-    /**
-     * @return true if the node is started now
-     */
-    public final boolean isStarted() {
-        return this.isStarted;
-    }
 
-    /**
-     * @return isStarted
-     **/
-    public void waitForStart() {
-        while (!this.isStarted) {
+    public boolean waitForStart(final long timeout, final TimeUnit timeUnit) {
+        Boolean connected = null;
+
+        while (connected != null) {
             try {
-                Thread.sleep(5);
+                connected = this.connectCountDownLatch.await(timeout, timeUnit);
+                return connected;
             } catch (final InterruptedException ie) {
                 LOGGER.error(ExceptionUtils.getStackTrace(ie));
+
             } catch (final Exception e) {
                 LOGGER.error(ExceptionUtils.getStackTrace(e));
             }
         }
+        return connected != null && connected;
     }
 
     /**
@@ -157,11 +155,10 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
     @Override
     public void onStart(ConnectedNode node) {
         this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(node, AsyncGoalRunnerActionLibServer.DEFAULT_ACTION_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
-//       Log log = node.getLog();
-        this.isStarted = true;
-        this.actionClient.addListener(this);
 
-//        System.exit(0);
+        this.actionClient.addListener(this);
+        this.connectCountDownLatch.countDown();
+
     }
 
     /**
@@ -205,10 +202,10 @@ class ActionLibClientFeedbackListener extends AbstractNodeMain implements Action
     @Override
     public void statusReceived(final GoalStatusArray status) {
         if (LOGGER.isTraceEnabled()) {
-            final StringJoiner stringJoiner=new StringJoiner(",","Status:{","}");
+            final StringJoiner stringJoiner = new StringJoiner(",", "Status:{", "}");
             for (final GoalStatus goalStatus : status.getStatusList()) {
 //                LOGGER.trace("GoalID: " + gs.getGoalId().getId() + " -- GoalStatus: " + gs.getStatus() + " -- " + gs.getText());
-                stringJoiner.add("GoalID: " + goalStatus.getGoalId().getId() + " -- GoalStatus: " + goalStatus.getStatus()+"("+this.goalStatusToString.getStatus(goalStatus.getStatus()) + ") -- " + goalStatus.getText());
+                stringJoiner.add("GoalID: " + goalStatus.getGoalId().getId() + " -- GoalStatus: " + goalStatus.getStatus() + "(" + this.goalStatusToString.getStatus(goalStatus.getStatus()) + ") -- " + goalStatus.getText());
             }
             LOGGER.trace(stringJoiner.toString());
         }

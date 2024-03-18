@@ -53,7 +53,7 @@ public class ClientServerFeedbackTest {
 
             this.rosExecutor.startNodeMain(asyncGoalRunnerActionLibServer, asyncGoalRunnerActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.rosExecutor.startNodeMain(actionLibClientFeedbackListener, actionLibClientFeedbackListener.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            this.actionLibClientFeedbackListener.waitForStart();
+            this.actionLibClientFeedbackListener.waitForStart(10000, TimeUnit.SECONDS);
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
