@@ -97,7 +97,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         final CountDownLatch resultReceived = new CountDownLatch(1);
 
         final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
-        this.futureBasedClientNode.getActionClient().addListener(resultListener);
+        this.futureBasedClientNode.getActionClient().addActionClientResultListener(resultListener);
         final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
         try {
             final boolean resultReceivedOK = resultReceived.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
@@ -120,7 +120,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         final CountDownLatch resultReceived = new CountDownLatch(1);
 
         final ActionClientResultListener<FibonacciActionResult> resultListener = fibonacciActionResult -> resultReceived.countDown();
-        this.futureBasedClientNode.getActionClient().addListener(resultListener);
+        this.futureBasedClientNode.getActionClient().addActionClientResultListener(resultListener);
         final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
         try {
             final boolean cancel = resultFuture.cancel(true);

@@ -143,7 +143,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
     public void onStart(final ConnectedNode connectedNode) {
         this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(connectedNode, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
 
-        this.actionClient.addListener(this);
+        this.actionClient.addActionClientListener(this);
         this.connectCountDownLatch.countDown();
 
     }

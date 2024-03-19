@@ -30,7 +30,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
-import org.ros.message.Duration;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
@@ -209,7 +208,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param actionClientListener the listener to add
      */
-    public final void addListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> actionClientListener) {
+    public final void addActionClientListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> actionClientListener) {
         if (actionClientListener != null) {
             this.callbackStatusTargets.add(actionClientListener);
             this.callbackFeedbackTargets.add(actionClientListener);
@@ -220,10 +219,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param targets the listeners to add
      */
-    public final void addListeners(final Collection<ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT>> targets) {
+    public final void addActionClientListeners(final Collection<ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT>> targets) {
         if (targets != null) {
             for (final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target : targets) {
-                this.addListener(target);
+                this.addActionClientListener(target);
             }
         }
     }
@@ -231,7 +230,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the status listener
      */
-    public final void addListener(final ActionClientStatusListener target) {
+    public final void addActionClientStatusListener(final ActionClientStatusListener target) {
         if (target != null) {
             this.callbackStatusTargets.add(target);
         }
@@ -240,7 +239,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the feedback listener
      */
-    public final void addListener(final ActionClientFeedbackListener<T_ACTION_FEEDBACK> target) {
+    public final void addActionClientFeedbackListener(final ActionClientFeedbackListener<T_ACTION_FEEDBACK> target) {
         if (target != null) {
             this.callbackFeedbackTargets.add(target);
         }
@@ -249,7 +248,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the result listener
      */
-    public final void addListener(final ActionClientResultListener<T_ACTION_RESULT> target) {
+    public final void addActionClientResultListener(final ActionClientResultListener<T_ACTION_RESULT> target) {
         if (target != null) {
             this.callbackResultTargets.add(target);
         }
@@ -259,7 +258,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the client listener for status, result and feedback
      */
-    public final void removeListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target) {
+    public final void removeActionClientListenerListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target) {
         if (target != null) {
             this.callbackStatusTargets.remove(target);
             this.callbackFeedbackTargets.remove(target);

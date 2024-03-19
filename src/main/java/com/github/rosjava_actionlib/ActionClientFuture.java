@@ -18,18 +18,14 @@
 package com.github.rosjava_actionlib;
 
 import actionlib_msgs.GoalID;
-import actionlib_msgs.GoalStatus;
-import actionlib_msgs.GoalStatusArray;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
-import java.util.List;
 import java.util.concurrent.*;
 
 /**
@@ -103,8 +99,8 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
         if (LOGGER.isWarnEnabled() && actionClient.isActive()) {
             LOGGER.warn("current goal STATE:" + actionClient.getGoalState() + "=" + actionClient.getGoalState().getValue());
         }
-        actionClient.addListener((ActionClientFeedbackListener<T_FEEDBACK>) actionClientFuture.actionClientFutureListener);
-        actionClient.addListener((ActionClientResultListener<T_RESULT>) actionClientFuture.actionClientFutureListener);
+        actionClient.addActionClientFeedbackListener((ActionClientFeedbackListener<T_FEEDBACK>) actionClientFuture.actionClientFutureListener);
+        actionClient.addActionClientResultListener((ActionClientResultListener<T_RESULT>) actionClientFuture.actionClientFutureListener);
         return actionClientFuture;
     }
 

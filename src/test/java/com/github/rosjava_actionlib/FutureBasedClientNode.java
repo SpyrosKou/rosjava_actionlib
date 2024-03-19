@@ -124,7 +124,7 @@ final class FutureBasedClientNode extends AbstractNodeMain implements ActionClie
     public final void onStart(final ConnectedNode connectedNode) {
         this.actionClient = new ActionClient<>(connectedNode, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE, this::getOnConnection);
         // Attach listener for the callbacks
-        this.actionClient.addListener(this);
+        this.actionClient.addActionClientListener(this);
 
         this.onStartCountDownLatch.countDown();
         LOGGER.trace("Node started. Client active:" + this.actionClient.isActive() + " goalState:" + this.actionClient.getGoalState());
