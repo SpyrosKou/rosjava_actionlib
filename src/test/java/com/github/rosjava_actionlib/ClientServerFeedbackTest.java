@@ -37,7 +37,7 @@ public class ClientServerFeedbackTest {
     private static final String ROS_MASTER_URI = testProperties.getRosMasterUri();
     private RosCore rosCore = null;
 
-    private ActionLibClientFeedbackListener actionLibClientFeedbackListener = null;
+    private ActionLibClientFeedbackListenerNode actionLibClientFeedbackListenerNode = null;
     private AsyncGoalRunnerActionLibServer asyncGoalRunnerActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
@@ -46,14 +46,18 @@ public class ClientServerFeedbackTest {
         try {
             this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
             this.rosCore.start();
-            this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            final boolean coreStartedOk=this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            Assume.assumeTrue("Core not started",coreStartedOk);
             this.asyncGoalRunnerActionLibServer = new AsyncGoalRunnerActionLibServer(false);
 
-            this.actionLibClientFeedbackListener = new ActionLibClientFeedbackListener();
+            this.actionLibClientFeedbackListenerNode = new ActionLibClientFeedbackListenerNode();
 
             this.rosExecutor.startNodeMain(asyncGoalRunnerActionLibServer, asyncGoalRunnerActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            this.rosExecutor.startNodeMain(actionLibClientFeedbackListener, actionLibClientFeedbackListener.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            this.actionLibClientFeedbackListener.waitForStart(10000, TimeUnit.SECONDS);
+            this.rosExecutor.startNodeMain(actionLibClientFeedbackListenerNode, actionLibClientFeedbackListenerNode.getDefaultNodeName().toString(), ROS_MASTER_URI);
+            final boolean serverStarted=this.asyncGoalRunnerActionLibServer.waitForStart(10000, TimeUnit.SECONDS);
+            Assume.assumeTrue("Could not connect",serverStarted);
+            final boolean clientStarted=this.actionLibClientFeedbackListenerNode.waitForStart(10000, TimeUnit.SECONDS);
+            Assume.assumeTrue("Could not connect",clientStarted);
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
@@ -70,8 +74,12 @@ public class ClientServerFeedbackTest {
 
             LOGGER.trace("Starting Tasks");
 
-            final FibonacciActionResult result=actionLibClientFeedbackListener.getFibonnaciBlocking(TestInputs.TEST_INPUT);
-            Assert.assertNotNull("Result was null",result);
+            final var resultFuture= actionLibClientFeedbackListenerNode.getFibonnaciBlocking(TestInputs.TEST_INPUT);
+            Assert.assertNotNull("Result was null",resultFuture);
+            final FibonacciActionResult result = resultFuture.get(10, TimeUnit.SECONDS);
+
+            LOGGER.trace("Goal completed!\n");
+
 
             Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
             LOGGER.trace("Stopping");
@@ -89,10 +97,11 @@ public class ClientServerFeedbackTest {
 
             LOGGER.trace("Starting Tasks");
 
-            final FibonacciActionResult result = actionLibClientFeedbackListener.getFibonnaciBlockingWithCancelation(TestInputs.TEST_INPUT);
-
+            final var resulFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciBlockingWithCancelation(TestInputs.TEST_INPUT);
+            final FibonacciActionResult result = resulFutureCancelled.get(30000, TimeUnit.MILLISECONDS);
             LOGGER.trace("Finished");
-
+            Assert.assertNotNull("Result should not be null",result);
+            Assert.assertTrue("Result should be incomplete",Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT,result.getResult().getSequence()));
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
@@ -103,12 +112,12 @@ public class ClientServerFeedbackTest {
     @After
     public void after() {
         try {
-            rosExecutor.stopNodeMain(asyncGoalRunnerActionLibServer);
+            rosExecutor.stopNodeMain(this.asyncGoalRunnerActionLibServer);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(actionLibClientFeedbackListener);
+            rosExecutor.stopNodeMain(this.actionLibClientFeedbackListenerNode);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -128,7 +137,7 @@ public class ClientServerFeedbackTest {
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
-        this.actionLibClientFeedbackListener = null;
+        this.actionLibClientFeedbackListenerNode = null;
         this.asyncGoalRunnerActionLibServer = null;
         this.rosCore = null;
     }

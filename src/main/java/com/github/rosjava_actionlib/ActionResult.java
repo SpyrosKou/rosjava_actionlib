@@ -30,7 +30,7 @@ public final class ActionResult<T_ACTION_RESULT extends Message> {
     private T_ACTION_RESULT actionResultMessage = null;
 
     public ActionResult(final T_ACTION_RESULT msg) {
-        actionResultMessage = msg;
+        this.actionResultMessage = msg;
     }
 
     public Header getHeaderMessage() {

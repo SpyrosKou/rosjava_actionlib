@@ -30,7 +30,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Test wait methods with {@link FibonacciActionLibServer} with {@link FibonacciActionLibClient}
+ * Test wait methods with {@link FibonacciActionLibServer} with {@link FutureBasedClientNode}
  */
 
 public class ConnectionNotificationMethodClientTest {
@@ -43,7 +43,7 @@ public class ConnectionNotificationMethodClientTest {
 
     private RosCore rosCore = null;
 
-    private FutureBasedClient futureBasedClient = null;
+    private FutureBasedClientNode futureBasedClientNode = null;
 
     private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
@@ -55,12 +55,12 @@ public class ConnectionNotificationMethodClientTest {
             this.rosCore.start();
             this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
-
-            this.futureBasedClient = new FutureBasedClient();
-
             this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
-            this.fibonacciActionLibServer.waitForStart();
 
+
+            this.futureBasedClientNode = new FutureBasedClientNode();
+            final boolean serverStarted = this.fibonacciActionLibServer.waitForStart(50, TimeUnit.SECONDS);
+            Assert.assertTrue("Server not started", serverStarted);
 
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
@@ -75,15 +75,31 @@ public class ConnectionNotificationMethodClientTest {
      *
      */
     @Test
-    @Deprecated
+
     public void testClientStarts() {
         try {
             final long timeoutMillis = 30_000;
-
-
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
-            this.rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
-            final boolean clientStarted = this.futureBasedClient.waitForServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
+            this.rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            final boolean clientStarted = this.futureBasedClientNode.waitForStart(timeoutMillis, TimeUnit.MILLISECONDS);
+            LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
+            Assert.assertTrue("Client Not Started", clientStarted);
+            final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
+            Assert.assertTrue(timeoutMillis >= clientConnectionsMillis);
+
+
+        } catch (final Exception e) {
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
+        }
+    }
+
+    @Test
+    public void testClientStartsAndConnects() {
+        try {
+            final long timeoutMillis = 30_000;
+            final Stopwatch stopWatchClient = Stopwatch.createStarted();
+            this.rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
+            final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(timeoutMillis, TimeUnit.MILLISECONDS);
             LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
             Assert.assertTrue("Client Not Started", clientStarted);
             final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
@@ -103,7 +119,7 @@ public class ConnectionNotificationMethodClientTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
         try {
-            rosExecutor.stopNodeMain(futureBasedClient);
+            rosExecutor.stopNodeMain(futureBasedClientNode);
         } catch (final Exception e2) {
             LOGGER.error(ExceptionUtils.getStackTrace(e2));
         }
@@ -126,7 +142,7 @@ public class ConnectionNotificationMethodClientTest {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
-        this.futureBasedClient = null;
+        this.futureBasedClientNode = null;
         this.fibonacciActionLibServer = null;
         this.rosCore = null;
     }

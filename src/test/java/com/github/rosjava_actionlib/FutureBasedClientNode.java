@@ -35,14 +35,13 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Demonstrates the {@link ActionFuture} usage
  *
  * @author Spyros Koukas
  */
-final class FutureBasedClient extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
+final class FutureBasedClientNode extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final int MAX_PRINT_SEQUENCE_ELEMENTS = 100;
 
@@ -55,47 +54,63 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
 
     @Override
     public GraphName getDefaultNodeName() {
-        return GraphName.of("fibonacci_future_client");
+        return GraphName.of(FibonacciGraphNames.CLIENT_NODE_GRAPH_NAME);
     }
 
     private final CountDownLatch onStartCountDownLatch = new CountDownLatch(1);
-    private final AtomicBoolean connectedToServerCache = new AtomicBoolean(false);
 
-    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
-        if (this.connectedToServerCache.get()) {
-            return true;
-        } else {
-            final Stopwatch stopwatch = Stopwatch.createStarted();
 
-            LOGGER.trace("Waiting for action server to start...");
-            try {
+    public final boolean waitForStart(final long timeout, final TimeUnit timeUnit) {
 
-                final boolean nodeStarted = this.onStartCountDownLatch.await(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+        try {
+            return this.onStartCountDownLatch.await(timeout, timeUnit);
 
+        } catch (final Exception e) {
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
+        }
+        return false;
+
+    }
+
+    /**
+     * Will first {@link FutureBasedClientNode#waitForStart(long, TimeUnit)}
+     *
+     * @param timeout
+     * @param timeUnit
+     * @return
+     */
+    public final boolean waitForClientStartAndServerConnection(final long timeout, final TimeUnit timeUnit) {
+
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+
+        LOGGER.trace("Waiting for action server to start...");
+        try {
+
+            final boolean nodeStarted = this.waitForStart(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
+            if (nodeStarted) {
                 final boolean serverConnection = this.actionClient.waitForServerConnection(Math.max(0, timeout - stopwatch.elapsed(timeUnit)), timeUnit);
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Action client serverConnected:[" + serverConnection + "] nodeStarted:[" + nodeStarted + "]");
                 }
-                if (serverConnection) {
-                    this.connectedToServerCache.compareAndSet(false, true);
-                }
+
                 return serverConnection;
-            } catch (final Exception exception) {
-                LOGGER.error(ExceptionUtils.getStackTrace(exception));
+            } else {
                 return false;
             }
+        } catch (final Exception exception) {
+            LOGGER.error(ExceptionUtils.getStackTrace(exception));
+            return false;
         }
-
     }
+
 
     /**
      * @param order
      * @return a future of the fibonacci
      */
-    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> invoke(
-            final int order) {
+    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> invoke(final int order) {
         // Create Fibonacci goal message
-        final FibonacciActionGoal goalMessage = actionClient.newGoalMessage();
+        final FibonacciActionGoal goalMessage = this.actionClient.newGoalMessage();
         final FibonacciGoal fibonacciGoal = goalMessage.getGoal();
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
@@ -107,10 +122,12 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
 
     @Override
     public final void onStart(final ConnectedNode connectedNode) {
-        this.actionClient = new ActionClient<>(connectedNode, "/fibonacci", FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE,this::getOnConnection);
+        this.actionClient = new ActionClient<>(connectedNode, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE, this::getOnConnection);
         // Attach listener for the callbacks
         this.actionClient.addListener(this);
+
         this.onStartCountDownLatch.countDown();
+        LOGGER.trace("Node started. Client active:" + this.actionClient.isActive() + " goalState:" + this.actionClient.getGoalState());
     }
 
     /**
@@ -119,8 +136,8 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
     @Override
     public final void resultReceived(final FibonacciActionResult message) {
 
-        if(LOGGER.isInfoEnabled()){
-            LOGGER.info("Result Received, size:"+message.getResult().getSequence().length);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("Result Received, size:" + message.getResult().getSequence().length);
         }
         if (LOGGER.isTraceEnabled()) {
 
@@ -130,7 +147,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
             for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
                 stringJoiner.add(sequence[i] + " ");
             }
-            if(sequence.length> MAX_PRINT_SEQUENCE_ELEMENTS){
+            if (sequence.length > MAX_PRINT_SEQUENCE_ELEMENTS) {
                 stringJoiner.add("Showing only first 100 elements");
             }
             LOGGER.trace(stringJoiner.toString());
@@ -144,8 +161,8 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
      */
     @Override
     public final void feedbackReceived(final FibonacciActionFeedback message) {
-        if(LOGGER.isInfoEnabled()){
-            LOGGER.info("Result Received, size:"+message.getFeedback().getSequence().length);
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("Result Received, size:" + message.getFeedback().getSequence().length);
         }
         if (LOGGER.isTraceEnabled()) {
             final FibonacciFeedback messageFeedback = message.getFeedback();
@@ -154,7 +171,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
             for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
                 stringJoiner.add(sequence[i] + " ");
             }
-            if(sequence.length> MAX_PRINT_SEQUENCE_ELEMENTS){
+            if (sequence.length > MAX_PRINT_SEQUENCE_ELEMENTS) {
                 stringJoiner.add("Showing only first 100 elements");
             }
             LOGGER.trace(stringJoiner.toString());
@@ -167,20 +184,23 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
     @Override
     public final void statusReceived(final GoalStatusArray status) {
         if (LOGGER.isInfoEnabled()) {
-            final GoalStatusToString goalStatusToString=new GoalStatusToString();
+            final GoalStatusToString goalStatusToString = new GoalStatusToString();
             final List<GoalStatus> statusList = status.getStatusList();
             for (final GoalStatus goalStatus : statusList) {
-                LOGGER.info("GoalID: " + goalStatus.getGoalId().getId() + " GoalStatus: " + goalStatus.getStatus() + " - " + goalStatus.getText()+" GoalStatus:"+goalStatusToString.getStatus(goalStatus.getStatus()));
+                LOGGER.info("GoalID: " + goalStatus.getGoalId().getId() + " GoalStatus: " + goalStatus.getStatus() + " - " + goalStatus.getText() + " GoalStatus:" + goalStatusToString.getStatus(goalStatus.getStatus()));
             }
 
         }
     }
+
     public final void setOnConnection(final Runnable onConnection) {
         Objects.requireNonNull(onConnection);
         this.onConnection = onConnection;
     }
-    private final Runnable getOnConnection(){
+
+    private final Runnable getOnConnection() {
         return this.onConnection;
     }
+
     private Runnable onConnection = Runnables::doNothing;
 }
