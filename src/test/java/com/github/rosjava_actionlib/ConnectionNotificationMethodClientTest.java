@@ -78,14 +78,14 @@ public class ConnectionNotificationMethodClientTest {
 
     public void testClientStarts() {
         try {
-            final long timeoutMillis = 30_000;
+
             final Stopwatch stopWatchClient = Stopwatch.createStarted();
             this.rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
-            final boolean clientStarted = this.futureBasedClientNode.waitForStart(timeoutMillis, TimeUnit.MILLISECONDS);
-            LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.MILLISECONDS) + " millis");
+            final boolean clientStarted = this.futureBasedClientNode.waitForStart(5, TimeUnit.SECONDS);
+            LOGGER.trace("Connected:" + clientStarted + " after:" + stopWatchClient.elapsed(TimeUnit.SECONDS) + " millis");
             Assert.assertTrue("Client Not Started", clientStarted);
-            final long clientConnectionsMillis = stopWatchClient.elapsed(TimeUnit.MILLISECONDS);
-            Assert.assertTrue(timeoutMillis >= clientConnectionsMillis);
+
+            Assert.assertTrue(5000 >= stopWatchClient.elapsed(TimeUnit.MILLISECONDS));
 
 
         } catch (final Exception e) {

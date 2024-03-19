@@ -15,6 +15,8 @@
  */
 package com.github.rosjava_actionlib;
 
+import actionlib_tutorials.FibonacciActionFeedback;
+import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
@@ -74,12 +76,13 @@ public class ClientServerFeedbackTest {
 
             LOGGER.trace("Starting Tasks");
 
-            final var resultFuture= actionLibClientFeedbackListenerNode.getFibonnaciBlocking(TestInputs.TEST_INPUT);
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture= actionLibClientFeedbackListenerNode.getFibonnaciFuture(TestInputs.TEST_INPUT);
             Assert.assertNotNull("Result was null",resultFuture);
-            final FibonacciActionResult result = resultFuture.get(10, TimeUnit.SECONDS);
+            final FibonacciActionResult result = resultFuture.get(5, TimeUnit.SECONDS);
 
-            LOGGER.trace("Goal completed!\n");
+            LOGGER.trace("Goal completed!");
 
+            Assert.assertNotNull("Result should not be null",result);
 
             Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
             LOGGER.trace("Stopping");
@@ -97,8 +100,8 @@ public class ClientServerFeedbackTest {
 
             LOGGER.trace("Starting Tasks");
 
-            final var resulFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciBlockingWithCancelation(TestInputs.TEST_INPUT);
-            final FibonacciActionResult result = resulFutureCancelled.get(30000, TimeUnit.MILLISECONDS);
+            final var resulFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciCanceledFuture(TestInputs.HUGE_INPUT);
+            final FibonacciActionResult result = resulFutureCancelled.get(5, TimeUnit.SECONDS);
             LOGGER.trace("Finished");
             Assert.assertNotNull("Result should not be null",result);
             Assert.assertTrue("Result should be incomplete",Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT,result.getResult().getSequence()));

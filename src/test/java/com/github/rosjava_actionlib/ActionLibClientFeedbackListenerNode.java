@@ -35,15 +35,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 
-/**
- * Class to test the actionlib client.
- *
- * @author Ernesto Corbellini ecorbellini@ekumenlabs.com
- * @author Spyros Koukas
- */
+
 class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements ActionClientListener<FibonacciActionFeedback, FibonacciActionResult> {
     private final GoalStatusToString goalStatusToString = new GoalStatusToString();
-
 
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -80,7 +74,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
             LOGGER.trace("Action server started.\n");
             return serverStarted;
 
-        }else{
+        } else {
             LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " milliseconds!");
             return false;
         }
@@ -91,8 +85,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
      * @deprecated Legacy
      * Sample method only to test client communication.
      */
-    @Deprecated
-    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciBlocking(final int order) {
+    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciFuture(final int order) {
 
         // Create Fibonacci goal message
         final FibonacciActionGoal goalMessage = (FibonacciActionGoal) this.actionClient.newGoalMessage();
@@ -111,11 +104,9 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
     }
 
     /**
-     * @deprecated legacy test
      * Sample method only to test client communication.
      */
-    @Deprecated
-    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciBlockingWithCancelation(final int order) throws ExecutionException, InterruptedException, TimeoutException {
+    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciCanceledFuture(final int order) {
 
 
         // Create Fibonacci goal message
@@ -124,16 +115,13 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
 
-        LOGGER.trace("Sending a new goal...");
+        LOGGER.trace("Sending new goal");
         final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resulFuture = this.actionClient.sendGoal(goalMessage);
         final GoalID gid2 = goalMessage.getGoalId();
         LOGGER.trace("Sent goal with ID: " + gid2.getId());
-        LOGGER.trace("Cancelling this goal...");
+        LOGGER.trace("Cancelling goal with ID: " + gid2.getId());
         this.actionClient.sendCancel(gid2);
-
-
-
-        LOGGER.trace("Cancel Request sent.");
+        LOGGER.trace("Cancel Request sent for goal with ID: " + gid2.getId());
         return resulFuture;
 
 
