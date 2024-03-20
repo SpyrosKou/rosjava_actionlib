@@ -20,15 +20,15 @@ import java.util.StringJoiner;
  *
  * @author Spyros Koukas
  */
-public class TestProperties{
-private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+public class TestProperties {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final static String ROS_HOST_IP_PARAMETER_NAME = "ROS_IP";
     private final static String ROS_HOSTNAME_PARAMETER_NAME = "ROS_HOSTNAME";
     private final static String ROS_MASTER_URI_PARAMETER_NAME = "ROS_MASTER_URI";
     private final static String ROS_MASTER_URI_PORT_PARAMETER_NAME = "ROS_MASTER_URI_PORT";
-    private final static String  ROS_CORE_START_WAIT_MILLIS_PARAMETER_NAME_="ROS_CORE_START_WAIT_MILLIS";
-    public final static String TEST_PROPERTIES_FILE_NAME="test_configurations.properties";
-
+    private final static String USE_EXTERNAL_ROS_MASTER_PARAMETER_NAME = "USE_EXTERNAL_ROS_MASTER";
+    private final static String ROS_CORE_START_WAIT_MILLIS_PARAMETER_NAME_ = "ROS_CORE_START_WAIT_MILLIS";
+    public final static String TEST_PROPERTIES_FILE_NAME = "test_configurations.properties";
 
 
     /**
@@ -40,16 +40,16 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     private final String rosMasterUri;
     private final int rosMasterUriPort;
     private final long rosCoreStartWaitMillis;
+    private final boolean useExternalRosMaster;
 
     /**
-     *
      * @param rosHostIp
      * @param rosHostName
      * @param rosMasterUri
      * @param rosMasterUriPort
      * @param rosCoreStartWaitMillis
      */
-    public TestProperties(final String rosHostIp,final  String rosHostName,final  String rosMasterUri,final int rosMasterUriPort,final long rosCoreStartWaitMillis) {
+    public TestProperties(final String rosHostIp, final String rosHostName, final String rosMasterUri, final int rosMasterUriPort, final long rosCoreStartWaitMillis, final boolean useExternalRosMaster) {
         Preconditions.checkArgument(StringUtils.isNotBlank(rosHostIp), "rosHostIp should not be blank.");
         Preconditions.checkArgument(StringUtils.isNotBlank(rosHostIp), "rosHostName should not be blank.");
         Preconditions.checkArgument(StringUtils.isNotBlank(rosHostIp), "rosMasterUri should not be blank.");
@@ -57,8 +57,9 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
         this.rosHostIp = rosHostIp;
         this.rosHostName = rosHostName;
         this.rosMasterUri = rosMasterUri;
-        this.rosMasterUriPort=rosMasterUriPort;
-        this.rosCoreStartWaitMillis=rosCoreStartWaitMillis;
+        this.rosMasterUriPort = rosMasterUriPort;
+        this.rosCoreStartWaitMillis = rosCoreStartWaitMillis;
+        this.useExternalRosMaster = useExternalRosMaster;
     }
 
     /**
@@ -91,20 +92,28 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(final Object o) {
         if (this == o) return true;
         if (!(o instanceof TestProperties)) return false;
         TestProperties that = (TestProperties) o;
         return getRosMasterUriPort() == that.getRosMasterUriPort() &&
-                getRosCoreStartWaitMillis() == that.getRosCoreStartWaitMillis() &&
-                Objects.equals(getRosHostIp(), that.getRosHostIp()) &&
-                Objects.equals(getRosHostName(), that.getRosHostName()) &&
-                Objects.equals(getRosMasterUri(), that.getRosMasterUri());
+                this.getRosCoreStartWaitMillis() == that.getRosCoreStartWaitMillis() &&
+                Objects.equals(this.getRosHostIp(), that.getRosHostIp()) &&
+                Objects.equals(this.getRosHostName(), that.getRosHostName()) &&
+                Objects.equals(this.getRosMasterUri(), that.getRosMasterUri()) &&
+                this.useExternalRosMaster() == that.useExternalRosMaster();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getRosHostIp(), getRosHostName(), getRosMasterUri(), getRosMasterUriPort(), getRosCoreStartWaitMillis());
+        return Objects.hash(
+                this.getRosHostIp()
+                , this.getRosHostName()
+                , this.getRosMasterUri()
+                , this.getRosMasterUriPort()
+                , this.getRosCoreStartWaitMillis()
+                , this.useExternalRosMaster()
+        );
     }
 
     /**
@@ -122,17 +131,17 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
             properties.load(bufinput);
             this.rosHostIp = properties.getProperty(ROS_HOST_IP_PARAMETER_NAME);
             this.rosHostName = properties.getProperty(ROS_HOSTNAME_PARAMETER_NAME);
-            this.rosMasterUri= properties.getProperty(ROS_MASTER_URI_PARAMETER_NAME);
-            this.rosMasterUriPort= PropertiesUtilities.getInt(ROS_MASTER_URI_PORT_PARAMETER_NAME, properties);
-            this.rosCoreStartWaitMillis=PropertiesUtilities.getLong(ROS_CORE_START_WAIT_MILLIS_PARAMETER_NAME_, properties);
+            this.rosMasterUri = properties.getProperty(ROS_MASTER_URI_PARAMETER_NAME);
+            this.rosMasterUriPort = PropertiesUtilities.getInt(ROS_MASTER_URI_PORT_PARAMETER_NAME, properties);
+            this.rosCoreStartWaitMillis = PropertiesUtilities.getLong(ROS_CORE_START_WAIT_MILLIS_PARAMETER_NAME_, properties);
+            this.useExternalRosMaster = PropertiesUtilities.getBoolean(USE_EXTERNAL_ROS_MASTER_PARAMETER_NAME, properties);
 
             LOGGER.trace("Loaded from:" + propertyFileName + " " + this.toString());
 
             Preconditions.checkArgument(StringUtils.isNotBlank(rosHostIp), "rosHostIp should not be blank.");
             Preconditions.checkArgument(StringUtils.isNotBlank(rosHostName), "rosHostName should not be blank.");
             Preconditions.checkArgument(StringUtils.isNotBlank(rosMasterUri), "rosMasterUri should not be blank.");
-        }
-        catch (final IOException e) {
+        } catch (final IOException e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
             throw new RuntimeException(e);
         }
@@ -166,11 +175,14 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
     }
 
     /**
-     *
      * @return
      */
     public int getRosMasterUriPort() {
         return rosMasterUriPort;
+    }
+
+    public boolean useExternalRosMaster() {
+        return this.useExternalRosMaster;
     }
 
 
@@ -182,6 +194,7 @@ private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.looku
                 .add("rosMasterUri='" + rosMasterUri + "'")
                 .add("rosMasterUriPort=" + rosMasterUriPort)
                 .add("rosCoreStartWaitMillis=" + rosCoreStartWaitMillis)
+                .add("useExternalRosMaster=" + useExternalRosMaster)
                 .toString();
     }
 }
