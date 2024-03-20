@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package eu.test.utils;
 /**
@@ -37,6 +37,25 @@ final class PropertiesUtilities {
     private PropertiesUtilities() {
     }
 
+    /**
+     * @param propertyName
+     * @param properties
+     * @return
+     */
+    public static final boolean getBoolean(final String propertyName, final Properties properties) {
+        Objects.requireNonNull(properties);
+        Preconditions.checkArgument(StringUtils.isNotBlank(propertyName), "propertyName should not be blank.");
+
+        final String propertyValue = properties.getProperty(propertyName);
+        try {
+            return Boolean.parseBoolean(propertyValue);
+        } catch (final Exception e) {
+            LOGGER.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while an integer is expected.");
+            throw new IllegalStateException(e);
+
+        }
+
+    }
 
     /**
      * @param propertyName
@@ -50,8 +69,7 @@ final class PropertiesUtilities {
         final String propertyValue = properties.getProperty(propertyName);
         try {
             result = Integer.parseInt(propertyValue);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             LOGGER.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while an integer is expected.");
             throw new IllegalStateException(e);
 
@@ -71,8 +89,7 @@ final class PropertiesUtilities {
         final String propertyValue = properties.getProperty(propertyName);
         try {
             result = Long.parseLong(propertyValue);
-        }
-        catch (final Exception e) {
+        } catch (final Exception e) {
             LOGGER.error(propertyName + " defines the " + propertyName + " as:" + propertyValue + " while a long is expected.");
             throw new IllegalStateException(e);
 
