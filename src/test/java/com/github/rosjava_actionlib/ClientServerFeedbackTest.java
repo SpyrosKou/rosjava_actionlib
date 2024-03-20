@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class ClientServerFeedbackTest {
@@ -37,6 +38,7 @@ public class ClientServerFeedbackTest {
     private static final String ROS_HOST_IP = testProperties.getRosHostIp();
     private static final int ROS_MASTER_URI_PORT = testProperties.getRosMasterUriPort();
     private static final String ROS_MASTER_URI = testProperties.getRosMasterUri();
+    private static final boolean USE_EXTERNAL_ROS_MASTER = testProperties.useExternalRosMaster();
     private RosCore rosCore = null;
 
     private ActionLibClientFeedbackListenerNode actionLibClientFeedbackListenerNode = null;
@@ -46,20 +48,26 @@ public class ClientServerFeedbackTest {
     @Before
     public void before() {
         try {
-            this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
-            this.rosCore.start();
-            final boolean coreStartedOk=this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            Assume.assumeTrue("Core not started",coreStartedOk);
+            final boolean coreStartedOk ;
+            if (!USE_EXTERNAL_ROS_MASTER) {
+                this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
+                this.rosCore.start();
+                coreStartedOk = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+                Assert.assertTrue("Core not started", coreStartedOk);
+            }else{
+                coreStartedOk = false;
+            }
+            Assert.assertTrue(USE_EXTERNAL_ROS_MASTER || coreStartedOk);
             this.asyncGoalRunnerActionLibServer = new AsyncGoalRunnerActionLibServer(false);
 
             this.actionLibClientFeedbackListenerNode = new ActionLibClientFeedbackListenerNode();
 
             this.rosExecutor.startNodeMain(asyncGoalRunnerActionLibServer, asyncGoalRunnerActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.rosExecutor.startNodeMain(actionLibClientFeedbackListenerNode, actionLibClientFeedbackListenerNode.getDefaultNodeName().toString(), ROS_MASTER_URI);
-            final boolean serverStarted=this.asyncGoalRunnerActionLibServer.waitForStart(10000, TimeUnit.SECONDS);
-            Assume.assumeTrue("Could not connect",serverStarted);
-            final boolean clientStarted=this.actionLibClientFeedbackListenerNode.waitForStart(10000, TimeUnit.SECONDS);
-            Assume.assumeTrue("Could not connect",clientStarted);
+            final boolean serverStarted = this.asyncGoalRunnerActionLibServer.waitForStart(10000, TimeUnit.SECONDS);
+            Assume.assumeTrue("Could not connect", serverStarted);
+            final boolean clientStarted = this.actionLibClientFeedbackListenerNode.waitForStartAndConnection(10000, TimeUnit.SECONDS);
+            Assume.assumeTrue("Could not connect", clientStarted);
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
             Assume.assumeNoException(er3);
@@ -76,13 +84,43 @@ public class ClientServerFeedbackTest {
 
             LOGGER.trace("Starting Tasks");
 
-            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture= actionLibClientFeedbackListenerNode.getFibonnaciFuture(TestInputs.TEST_INPUT);
-            Assert.assertNotNull("Result was null",resultFuture);
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = actionLibClientFeedbackListenerNode.getFibonnaciFuture(TestInputs.TEST_INPUT);
+            Assert.assertNotNull("Result was null", resultFuture);
             final FibonacciActionResult result = resultFuture.get(5, TimeUnit.SECONDS);
 
             LOGGER.trace("Goal completed!");
 
-            Assert.assertNotNull("Result should not be null",result);
+            Assert.assertNotNull("Result should not be null", result);
+
+            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            LOGGER.trace("Stopping");
+
+
+        } catch (final Exception e) {
+
+            Assert.fail(ExceptionUtils.getStackTrace(e));
+        }
+    }
+
+    @Test
+    public void testCountDownLatch() {
+
+
+        try {
+
+            LOGGER.trace("Starting Tasks");
+            Assert.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isEmpty());
+            final CountDownLatch countDownLatch = actionLibClientFeedbackListenerNode.submitRequestSilent(TestInputs.TEST_INPUT);
+
+            final boolean gotResult = countDownLatch.await(6, TimeUnit.SECONDS);
+            Assert.assertTrue("Timeout", gotResult);
+            Assert.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isPresent());
+            final FibonacciActionResult result = actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().get();
+
+
+            LOGGER.trace("Goal completed!");
+
+            Assert.assertNotNull("Result should not be null", result);
 
             Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
             LOGGER.trace("Stopping");
@@ -103,8 +141,8 @@ public class ClientServerFeedbackTest {
             final var resulFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciCanceledFuture(TestInputs.HUGE_INPUT);
             final FibonacciActionResult result = resulFutureCancelled.get(5, TimeUnit.SECONDS);
             LOGGER.trace("Finished");
-            Assert.assertNotNull("Result should not be null",result);
-            Assert.assertTrue("Result should be incomplete",Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT,result.getResult().getSequence()));
+            Assert.assertNotNull("Result should not be null", result);
+            Assert.assertTrue("Result should be incomplete", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, result.getResult().getSequence()));
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
