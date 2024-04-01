@@ -79,7 +79,7 @@ abstract class TopicParticipantListener {
         return this.isRegistered.get();
     }
 
-    public final boolean waitForRegistration() {
+    public final boolean waitForRegistration() throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (!this.isRegistered()) {
             try {
@@ -89,6 +89,7 @@ abstract class TopicParticipantListener {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " " + TimeUnit.MILLISECONDS);
                 }
+                throw interruptedException;
             }
         }
         final boolean result = this.isRegistered();
@@ -103,7 +104,7 @@ abstract class TopicParticipantListener {
      * @param timeUnit
      * @return
      */
-    public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit)  throws InterruptedException{
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (!this.isRegistered()) {
             try {
@@ -113,6 +114,7 @@ abstract class TopicParticipantListener {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 }
+                throw interruptedException;
             }
         }
         final boolean result = this.isRegistered();

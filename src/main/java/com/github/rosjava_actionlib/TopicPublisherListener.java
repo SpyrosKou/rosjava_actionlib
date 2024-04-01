@@ -43,7 +43,7 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
      * @param timeUnit
      * @return
      */
-    public final boolean waitForSubscriber(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForSubscriber(final long timeout, final TimeUnit timeUnit) throws InterruptedException{
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (!this.isSubscriberConnected()) {
             try {
@@ -53,6 +53,7 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
                 }
+                throw interruptedException;
             }
         }
         final boolean result = this.isSubscriberConnected();

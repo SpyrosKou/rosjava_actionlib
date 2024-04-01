@@ -61,7 +61,7 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
     private final CountDownLatch connectionCountDownLatch = new CountDownLatch(1);
     private final AtomicBoolean connectedToServerCache = new AtomicBoolean(false);
 
-    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) throws InterruptedException{
         if (this.connectedToServerCache.get()) {
             return true;
         } else {
@@ -79,7 +79,10 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
                     this.connectedToServerCache.compareAndSet(false, true);
                 }
                 return serverConnection;
-            } catch (final Exception exception) {
+            } catch (final InterruptedException interruptedException) {
+                LOGGER.error(ExceptionUtils.getStackTrace(interruptedException));
+                throw interruptedException;
+            }catch (final Exception exception) {
                 LOGGER.error(ExceptionUtils.getStackTrace(exception));
                 return false;
             }
@@ -182,4 +185,6 @@ final class FutureBasedClient extends AbstractNodeMain implements ActionClientLi
         return this.onConnection;
     }
     private Runnable onConnection = Runnables::doNothing;
+
+
 }

@@ -612,7 +612,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param timeUnit
      * @return true if client subscribers to the result, feedback and status topics have been registered before the timeout elapses, else false
      */
-    public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean result = this.resultArrayTopicSubscriberListener.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.feedbackArrayTopicSubscriberListener.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
@@ -629,7 +629,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
      */
-    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit)throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean result = this.resultArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.feedbackArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
@@ -646,7 +646,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
      */
-    public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) throws InterruptedException{
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean debugShown = false;
         boolean result = this.goalTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
@@ -671,7 +671,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param timeUnit
      * @return true if all publishers and clients required for the client/server connection are connected, else false
      */
-    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean result = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);

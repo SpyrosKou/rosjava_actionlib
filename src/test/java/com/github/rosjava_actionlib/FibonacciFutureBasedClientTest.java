@@ -143,22 +143,25 @@ public class FibonacciFutureBasedClientTest extends BaseTest {
     }
 
 
-
-
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
-        Assume.assumeNotNull(rosExecutor);
-        Assume.assumeTrue(rosMasterUri.isPresent());
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        this.fibonacciActionLibServer = new FibonacciActionLibServer();
-        this.futureBasedClient = new FutureBasedClient();
+        try {
 
-        rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
-        this.fibonacciActionLibServer.waitForStart();
-        rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), rosMasterUri.get());
-        final boolean serverStarted = this.futureBasedClient.waitForServerConnection(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
-        Assume.assumeTrue("Server Not Started. " + "Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, serverStarted);
 
+            Assume.assumeNotNull(rosExecutor);
+            Assume.assumeTrue(rosMasterUri.isPresent());
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+            this.fibonacciActionLibServer = new FibonacciActionLibServer();
+            this.futureBasedClient = new FutureBasedClient();
+
+            rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
+            this.fibonacciActionLibServer.waitForStart();
+            rosExecutor.startNodeMain(this.futureBasedClient, this.futureBasedClient.getDefaultNodeName().toString(), rosMasterUri.get());
+            final boolean serverStarted = this.futureBasedClient.waitForServerConnection(this.timeout - stopwatch.elapsed(this.timeUnit), this.timeUnit);
+            Assume.assumeTrue("Server Not Started. " + "Elapsed Time:" + stopwatch.elapsed(this.timeUnit) + " timeout:" + timeout, serverStarted);
+        } catch (final Exception exception) {
+            Assume.assumeNoException(exception);
+        }
     }
 
     @Override
