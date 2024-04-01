@@ -59,9 +59,11 @@ public class WaitMethodsClientServerTest {
     @Before
     public void before() {
         try {
-            this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
-            this.rosCore.start();
-            this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            if (!testProperties.useExternalRosMaster()) {
+                this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
+                this.rosCore.start();
+                this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            }
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
 
             this.futureBasedClient = new FutureBasedClient();
