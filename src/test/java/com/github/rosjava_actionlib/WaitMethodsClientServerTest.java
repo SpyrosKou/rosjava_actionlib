@@ -57,11 +57,16 @@ public class WaitMethodsClientServerTest {
     @Before
     public void before() {
         try {
-            this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
-            this.rosCore.start();
-            final boolean rosCoreStarted = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-            Assert.assertTrue("Ros core not connected", rosCoreStarted);
+            if (!testProperties.useExternalRosMaster()) {
+                this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
+                this.rosCore.start();
+                final boolean rosCoreStarted = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+                Assert.assertTrue("Ros core not connected", rosCoreStarted);
+
+            }
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
+
+
             this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             final boolean serverConnected = this.fibonacciActionLibServer.waitForStart(5, TimeUnit.SECONDS);
             Assert.assertTrue("Server Could not connect", serverConnected);

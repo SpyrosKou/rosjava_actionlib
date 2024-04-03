@@ -51,9 +51,11 @@ public class ConnectionNotificationMethodClientTest {
     @Before
     public void before() {
         try {
-            this.rosCore = RosCore.newPrivate();
-            this.rosCore.start();
-            this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            if(!testProperties.useExternalRosMaster()) {
+                this.rosCore = RosCore.newPrivate();
+                this.rosCore.start();
+                this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            }
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
             this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), this.rosCore.getMasterServer().getUri().toString());
 

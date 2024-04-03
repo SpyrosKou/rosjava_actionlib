@@ -97,11 +97,14 @@ final class FutureBasedClientNode extends AbstractNodeMain implements ActionClie
             } else {
                 return false;
             }
-        } catch (final Exception exception) {
-            LOGGER.error(ExceptionUtils.getStackTrace(exception));
-            return false;
+        } catch (final InterruptedException interruptedException) {
+                LOGGER.error(ExceptionUtils.getStackTrace(interruptedException));
+                throw interruptedException;
+            }catch (final Exception exception) {
+                LOGGER.error(ExceptionUtils.getStackTrace(exception));
+                return false;
+            }
         }
-    }
 
 
     /**
@@ -203,4 +206,6 @@ final class FutureBasedClientNode extends AbstractNodeMain implements ActionClie
     }
 
     private Runnable onConnection = Runnables::doNothing;
+
+
 }

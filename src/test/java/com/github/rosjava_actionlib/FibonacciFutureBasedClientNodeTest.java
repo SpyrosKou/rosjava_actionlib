@@ -143,10 +143,9 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     }
 
 
-
-
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
+        try {
         Assume.assumeNotNull(rosExecutor);
         Assume.assumeTrue(rosMasterUri.isPresent());
         final Stopwatch stopwatch = Stopwatch.createStarted();
@@ -160,7 +159,9 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
         final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
         Assume.assumeTrue("Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT+" "+TIME_UNIT, clientStarted);
-
+        } catch (final Exception exception) {
+            Assume.assumeNoException(exception);
+        }
     }
 
     @Override

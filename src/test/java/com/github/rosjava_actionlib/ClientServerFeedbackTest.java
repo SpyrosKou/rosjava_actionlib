@@ -49,7 +49,7 @@ public class ClientServerFeedbackTest {
     public void before() {
         try {
             final boolean coreStartedOk ;
-            if (!USE_EXTERNAL_ROS_MASTER) {
+            if (USE_EXTERNAL_ROS_MASTER) {
                 this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
                 this.rosCore.start();
                 coreStartedOk = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);

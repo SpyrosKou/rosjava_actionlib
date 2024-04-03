@@ -56,11 +56,13 @@ abstract class BaseTest {
     @Before
     public void before() {
         try {
-            this.rosMasterUriPort = AvailablePortFinder.getNextAvailable();
-            this.rosExecutor = new RosExecutor(ROS_HOST_IP);
-            this.rosCore = RosCore.newPrivate(rosMasterUriPort);
-            this.rosCore.start();
-            this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            if(!testProperties.useExternalRosMaster()) {
+                this.rosMasterUriPort = AvailablePortFinder.getNextAvailable();
+                this.rosExecutor = new RosExecutor(ROS_HOST_IP);
+                this.rosCore = RosCore.newPrivate(rosMasterUriPort);
+                this.rosCore.start();
+                this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
+            }
             final Optional<String> rosMasterUri = this.getRosMasterUri();
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("ROS Host IP:" + ROS_HOST_IP + " Current Ros Master Port:" + this.rosMasterUriPort);
