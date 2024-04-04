@@ -42,12 +42,9 @@ public enum ClientState {
     private final int value;
 
     public Integer getValue() {
-        return value;
+        return this.value;
     }
 
-    /**
-     * @return
-     */
     public final boolean isRunning() {
         return this.getValue() >= ClientState.WAITING_FOR_GOAL_ACK.getValue() && this.getValue() < ClientState.DONE.getValue();
 
@@ -71,7 +68,6 @@ public enum ClientState {
     }
 
     /**
-     *
      * @param state
      * @return
      */
@@ -87,7 +83,6 @@ public enum ClientState {
      * Get state from value
      *
      * @param value value
-     *
      * @return state
      */
     public static ClientState from(final int value) {

@@ -30,7 +30,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
-import org.ros.message.Duration;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
@@ -63,10 +62,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     private static final long PUBLISHER_SHUTDOWN_TIMEOUT_MILLIS = 5000;
     private static final boolean LATCH_MODE = false;
-    private final GoalStatusToString goalStatusToString=new GoalStatusToString();
+    private final GoalStatusToString goalStatusToString = new GoalStatusToString();
 
     private final ClientGoalManager<T_ACTION_GOAL> goalManager = new ClientGoalManager<>(new ActionGoal<>());
-    ;
+
     private final String actionGoalType;
     private final String actionResultType;
     private final String actionFeedbackType;
@@ -206,25 +205,24 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
 
-
     /**
-     * @param target the listener to add
+     * @param actionClientListener the listener to add
      */
-    public final void addListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target) {
-        if (target != null) {
-            this.callbackStatusTargets.add(target);
-            this.callbackFeedbackTargets.add(target);
-            this.callbackResultTargets.add(target);
+    public final void addActionClientListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> actionClientListener) {
+        if (actionClientListener != null) {
+            this.callbackStatusTargets.add(actionClientListener);
+            this.callbackFeedbackTargets.add(actionClientListener);
+            this.callbackResultTargets.add(actionClientListener);
         }
     }
 
     /**
      * @param targets the listeners to add
      */
-    public final void addListeners(final Collection<ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT>> targets) {
+    public final void addActionClientListeners(final Collection<ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT>> targets) {
         if (targets != null) {
             for (final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target : targets) {
-                this.addListener(target);
+                this.addActionClientListener(target);
             }
         }
     }
@@ -232,7 +230,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the status listener
      */
-    public final void addListener(final ActionClientStatusListener target) {
+    public final void addActionClientStatusListener(final ActionClientStatusListener target) {
         if (target != null) {
             this.callbackStatusTargets.add(target);
         }
@@ -241,7 +239,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the feedback listener
      */
-    public final void addListener(final ActionClientFeedbackListener<T_ACTION_FEEDBACK> target) {
+    public final void addActionClientFeedbackListener(final ActionClientFeedbackListener<T_ACTION_FEEDBACK> target) {
         if (target != null) {
             this.callbackFeedbackTargets.add(target);
         }
@@ -250,7 +248,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the result listener
      */
-    public final void addListener(final ActionClientResultListener<T_ACTION_RESULT> target) {
+    public final void addActionClientResultListener(final ActionClientResultListener<T_ACTION_RESULT> target) {
         if (target != null) {
             this.callbackResultTargets.add(target);
         }
@@ -260,7 +258,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     /**
      * @param target the client listener for status, result and feedback
      */
-    public final void removeListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target) {
+    public final void removeActionClientListenerListener(final ActionClientListener<T_ACTION_FEEDBACK, T_ACTION_RESULT> target) {
         if (target != null) {
             this.callbackStatusTargets.remove(target);
             this.callbackFeedbackTargets.remove(target);
@@ -269,24 +267,54 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     }
 
     /**
+     * @param actionFeedbackListener
+     */
+    public final void removeActionClientFeedbackListener(final ActionClientFeedbackListener<T_ACTION_FEEDBACK> actionFeedbackListener) {
+        if (actionFeedbackListener != null) {
+            this.callbackFeedbackTargets.remove(actionFeedbackListener);
+        }
+    }
+
+    /**
+     * @param actionResultListener
+     */
+    public final void removeActionClientResultListener(final ActionClientResultListener<T_ACTION_RESULT> actionResultListener) {
+        if (actionResultListener != null) {
+            this.callbackResultTargets.remove(actionResultListener);
+        }
+    }
+
+    /**
+     * @param actionClientStatusListener
+     */
+    public final void removeActionClientStatusListener(final ActionClientStatusListener actionClientStatusListener) {
+        if (actionClientStatusListener != null) {
+            this.callbackStatusTargets.remove(actionClientStatusListener);
+        }
+    }
+
+    /**
      * Publish an action goal to the server. The type of the action goal message
      * is dependent on the application.
      *
-     * @param agMessage The action goal message.
-     * @param id        A string containing the ID for the goal. The ID should represent
-     *                  this goal in a unique fashion in the server and the client.
-     *                  If the Id is {@link StringUtils#isBlank(CharSequence)} e.g. null or empty it will be autogenerated.
+     * @param actionGoalMessage The action goal message.
+     * @param id                A string containing the ID for the goal. The ID should represent
+     *                          this goal in a unique fashion in the server and the client.
+     *                          If the Id is {@link StringUtils#isBlank(CharSequence)} e.g. null or empty it will be autogenerated.
      * @return
      */
-    public final ActionFuture<T_ACTION_GOAL, T_ACTION_FEEDBACK, T_ACTION_RESULT> sendGoal(final T_ACTION_GOAL agMessage, final String id) {
-        final GoalID gid = getGoalId(agMessage);
+    public final ActionFuture<T_ACTION_GOAL, T_ACTION_FEEDBACK, T_ACTION_RESULT> sendGoal(final T_ACTION_GOAL actionGoalMessage, final String id) {
+        final GoalID gid = this.getGoalId(actionGoalMessage);
         if (StringUtils.isBlank(id)) {
             this.goalIdGenerator.generateID(gid);
         } else {
             gid.setId(id);
         }
 
-        return ActionClientFuture.createFromGoal(this, agMessage);
+        final ActionFuture<T_ACTION_GOAL, T_ACTION_FEEDBACK, T_ACTION_RESULT> actionClientFuture = ActionClientFuture.createFromGoal(this, actionGoalMessage);
+        this.sendGoalWire(actionGoalMessage);
+        return actionClientFuture;
+
     }
 
     /**
@@ -341,6 +369,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     public final void sendCancel(final GoalID goalIDd) {
         this.goalManager.cancelGoal();
+
         this.cancelPublisher.publish(goalIDd);
     }
 
@@ -576,7 +605,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                                 for (final GoalStatus status : goalStatuses) {
                                     goalStatus = goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) >= 0 ? goalStatus : status;
                                     if (LOGGER.isTraceEnabled()) {
-                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() +"("+this.goalStatusToString.getStatus(goalStatus.getStatus())+ ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
+                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() + "(" + this.goalStatusToString.getStatus(goalStatus.getStatus()) + ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
                                     }
 
                                 }
@@ -629,7 +658,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
      */
-    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit)throws InterruptedException {
+    public final boolean waitForServerPublishers(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean result = this.resultArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         result = result && this.feedbackArrayTopicSubscriberListener.waitForPublisher(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
@@ -646,7 +675,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param timeUnit
      * @return true if publishers to the result, feedback and status topics have been detected before the timeout elapses, else false
      */
-    public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) throws InterruptedException{
+    public final boolean waitForClientSubscribers(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         boolean debugShown = false;
         boolean result = this.goalTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
@@ -673,38 +702,61 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     public final boolean waitForServerConnection(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        boolean result = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        result = result && this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        result = result && this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-        return result;
+        final boolean registered = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Action:" + this.actionName + " client registered:[" + registered + "]");
+        }
+        if (registered) {
+            final boolean publishersConnected = this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Action:" + this.actionName + " publishers connected:[" + publishersConnected + "]");
+            }
+            if (publishersConnected) {
+                final boolean subscribersConnected = this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Action:" + this.actionName + " subscribers connected:[" + subscribersConnected + "]");
+                }
+                //if registered and publishers are  connected in time, the results depends on subscribersConnection
+                return subscribersConnected;
+            } else {
+                //if registered but publishers not connected in time
+                return false;
+            }
+
+        } else {
+            //if not registered in time
+            return false;
+        }
+
     }
 
 
     /**
      * Checks if the server is started at the time of the method call.
      * This method involves network interaction
+     *
      * @return
      */
     public final boolean isActionServerStarted() {
-        final Supplier<MasterStateClient> masterStateClientSupplier= Suppliers.memoize(()->new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri()));
-        final boolean result= this.statusSubscriberFlagReception
+        final Supplier<MasterStateClient> masterStateClientSupplier = Suppliers.memoize(() -> new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri()));
+        final boolean result = this.statusSubscriberFlagReception
                 && this.goalPublisher.hasSubscribers()
                 && this.cancelPublisher.hasSubscribers()
-                && this.isTopicPublished(this.getFeedbackTopicName(),masterStateClientSupplier.get())
+                && this.isTopicPublished(this.getFeedbackTopicName(), masterStateClientSupplier.get())
 //                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
-                 && this.isTopicPublished(this.getResultTopicName(),masterStateClientSupplier.get());
+                && this.isTopicPublished(this.getResultTopicName(), masterStateClientSupplier.get());
 
         return result;
     }
 
     /**
-     * Wait for an actionlib server to connect.
-     *
      * @param timeout The maximum amount of time to wait for an action server. If
      *                this value is less than or equal to zero, it will wait forever until a
      *                server is detected.
      * @return True if the action server was detected before the timeout and
      * false otherwise.
+     * @deprecated use {@link ActionClient#waitForServerConnection}
+     * Wait for an actionlib server to connect.
      */
     @Deprecated
     public final boolean waitForActionServerToStart(final long timeout, final TimeUnit timeUnit) {

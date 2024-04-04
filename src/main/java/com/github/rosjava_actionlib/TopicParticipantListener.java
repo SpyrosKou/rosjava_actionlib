@@ -106,10 +106,17 @@ abstract class TopicParticipantListener {
      */
     public final boolean waitForRegistration(final long timeout, final TimeUnit timeUnit)  throws InterruptedException{
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (!this.isRegistered()) {
+        while (!this.isRegistered() && stopwatch.elapsed(timeUnit) <= timeout) {
             try {
-                this.registrationCountDownLatch.await(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
-                return this.isRegistered();
+                final long effectiveTimeout = Math.max(timeout - stopwatch.elapsed(timeUnit), 0);
+                if (effectiveTimeout > 0) {
+                    this.registrationCountDownLatch.await(effectiveTimeout, timeUnit);
+                }
+                final boolean result = this.isRegistered();
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Registering timed out. Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+                }
+                return result;
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
@@ -119,7 +126,7 @@ abstract class TopicParticipantListener {
         }
         final boolean result = this.isRegistered();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+            LOGGER.trace("Registered in time. Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
         }
         return result;
     }
@@ -127,6 +134,7 @@ abstract class TopicParticipantListener {
 
     final public void onShutdown(final TopicParticipant topicParticipant) {
         this.isRegistered.set(false);
+        this.registrationCountDownLatch.countDown();
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("Shutdown topicParticipant for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
         }
@@ -135,6 +143,7 @@ abstract class TopicParticipantListener {
 
     final public void onMasterRegistrationSuccess(final TopicParticipant topicParticipant) {
         this.isRegistered.set(true);
+        this.registrationCountDownLatch.countDown();
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("Master Registration success for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
         }
@@ -142,6 +151,7 @@ abstract class TopicParticipantListener {
 
     final public void onMasterRegistrationFailure(final TopicParticipant topicParticipant) {
         this.isRegistered.set(false);
+        this.registrationCountDownLatch.countDown();
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Master Registration Failure for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
         }
@@ -149,6 +159,7 @@ abstract class TopicParticipantListener {
 
     final public void onMasterUnregistrationSuccess(final TopicParticipant topicParticipant) {
         this.isRegistered.set(false);
+        this.registrationCountDownLatch.countDown();
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("Master UnRegistration Success for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
         }
@@ -156,6 +167,7 @@ abstract class TopicParticipantListener {
 
     final public void onMasterUnregistrationFailure(final TopicParticipant topicParticipant) {
         this.isRegistered.set(false);
+        this.registrationCountDownLatch.countDown();
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Master UnRegistration Failure for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
         }

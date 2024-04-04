@@ -3,10 +3,10 @@ plugins {
     id 'java-library'
     id 'idea'
 }
-group 'com.github.SpyrosKou'
-version = '2023.06.14.02'
+group 'com.github.rosjava'
+version = '2024.04.04.01'
 description = 'A pure java version of actionlib'
-sourceCompatibility = JavaVersion.VERSION_17
+sourceCompatibility = JavaVersion.VERSION_21
 
 repositories {
     mavenLocal()
@@ -37,7 +37,7 @@ tasks.withType(Javadoc) {
 dependencies {
 
     implementation group: 'org.ros.rosjava_bootstrap', name: 'message_generation', version: '0.3.8'
-    implementation 'org.ros.rosjava_core:rosjava:0.3.9.2'
+    implementation 'org.ros.rosjava_core:rosjava:0.3.9.6'
 
     api 'org.ros.rosjava_messages:actionlib_msgs:1.13.0'
     api 'org.ros.rosjava_messages:actionlib:1.13.2'

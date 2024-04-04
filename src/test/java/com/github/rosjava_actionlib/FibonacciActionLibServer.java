@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -50,13 +51,12 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     private ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionServer = null;
     private volatile FibonacciActionGoal currentGoal = null;
     private final FibonacciCalculator fibonacciCalculator = new FibonacciCalculator();
-    private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final CountDownLatch startCountDownLatch = new CountDownLatch(1);
     private final Set<String> cancelledGoalIds = new ConcurrentSkipListSet<>();
 
     @Override
     public final GraphName getDefaultNodeName() {
-        return GraphName.of("fibonacci_test_server");
+        return GraphName.of(FibonacciGraphNames.SERVER_NODE_GRAPH_NAME);
     }
 
     /**
@@ -64,31 +64,31 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
      *
      * @return isStarted
      **/
-    public final void waitForStart() {
-        if (!this.isStarted.get()) {
-            try {
-                this.startCountDownLatch.await();
-            } catch (final InterruptedException ie) {
-                LOGGER.error(ExceptionUtils.getStackTrace(ie));
-            } catch (final Exception e) {
-                LOGGER.error(ExceptionUtils.getStackTrace(e));
-            }
+    public final boolean waitForStart(final long timeout, final TimeUnit timeUnit) {
+
+        try {
+            return this.startCountDownLatch.await(timeout, timeUnit);
+
+        } catch (final Exception e) {
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
+        return false;
+
     }
+
 
     @Override
     public final void onStart(final ConnectedNode node) {
 
-        this.actionServer = new ActionServer<>(node, this, "/fibonacci", FibonacciActionGoal._TYPE,
+        this.actionServer = new ActionServer<>(node, this, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE,
                 FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
 
-        this.isStarted.set(true);
         this.startCountDownLatch.countDown();
     }
 
     @Override
     public final void goalReceived(final FibonacciActionGoal goal) {
-        LOGGER.trace("Goal received: "+goal.getGoalId().getId());
+        LOGGER.trace("Goal received: " + goal.getGoalId().getId());
 
     }
 
@@ -104,7 +104,7 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     @Override
     public final void cancelReceived(final GoalID id) {
         this.cancelledGoalIds.add(id.getId());
-        LOGGER.trace("Cancel received for goal:"+id);
+        LOGGER.trace("Cancel received for goal:" + id);
     }
 
     @Override
@@ -114,7 +114,7 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
             this.currentGoal = goal;
             this.actionServer.setAccepted(this.currentGoal.getGoalId().getId());
             LOGGER.trace("Goal accepted.");
-            final FibonacciActionFeedback feedback=this.actionServer.newFeedbackMessage();
+            final FibonacciActionFeedback feedback = this.actionServer.newFeedbackMessage();
             feedback.getStatus().setStatus(GoalStatus.ACTIVE);
             this.actionServer.sendFeedback(feedback);
 
@@ -129,14 +129,14 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
             result.getResult().setSequence(output);
 
 
-
             if (this.shouldCancelGoal(goal)) {
                 this.cancelledGoalIds.remove(goal.getGoalId().getId());
-            }else{
+            } else {
                 result.getStatus().setStatus(GoalStatus.SUCCEEDED);
                 this.actionServer.setSucceed(goal.getGoalId().getId());
             }
             this.actionServer.sendResult(result);
+            this.currentGoal=null;
             return Optional.empty();
         } else {
             LOGGER.trace("We already have a goal! New goal reject.");

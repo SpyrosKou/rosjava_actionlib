@@ -76,10 +76,10 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
      *
      * @return isStarted
      **/
-    public void waitForStart() {
+    public void waitForStart() throws InterruptedException {
         while (!this.isStarted) {
             if (this.getShapeActionClient() != null) {
-                this.getShapeActionClient().waitForActionServerToStart(1,TimeUnit.DAYS);
+                this.getShapeActionClient().waitForServerConnection(1, TimeUnit.DAYS);
             }
             sleep(5);
         }
@@ -99,14 +99,14 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
      * @param timeUnit
      */
     @Deprecated
-    public void synchronousCompleteGoal(final ShapeGoal shapeGoal, final long timeout, final TimeUnit timeUnit) {
+    public void synchronousCompleteGoal(final ShapeGoal shapeGoal, final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         Objects.requireNonNull(shapeGoal);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         // Attach listener for the callbacks
 
         LOGGER.trace("\nWaiting for action server to start...");
-        final boolean serverStarted = shapeActionClient.waitForActionServerToStart(timeout, timeUnit);
+        final boolean serverStarted = shapeActionClient.waitForServerConnection(timeout, timeUnit);
         if (serverStarted) {
             LOGGER.trace("Action server started.\n");
         } else {
@@ -140,7 +140,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
         LOGGER.trace("Starting");
         this.shapeActionClient = new ActionClient<>(node, "/turtle_shape", ShapeActionGoal._TYPE, ShapeActionFeedback._TYPE, ShapeActionResult._TYPE);
         final ShapeHandler shapeHandler = new ShapeHandler();
-        this.shapeActionClient.addListener(shapeHandler);
+        this.shapeActionClient.addActionClientListener(shapeHandler);
         log = node.getLog();
         //TODO synchronous start method implement.
         this.isStarted = true;
