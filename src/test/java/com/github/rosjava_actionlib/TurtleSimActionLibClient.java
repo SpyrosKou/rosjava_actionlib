@@ -76,10 +76,10 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
      *
      * @return isStarted
      **/
-    public void waitForStart() {
+    public void waitForStart() throws InterruptedException {
         while (!this.isStarted) {
             if (this.getShapeActionClient() != null) {
-                this.getShapeActionClient().waitForServerConnection(1,TimeUnit.DAYS);
+                this.getShapeActionClient().waitForServerConnection(1, TimeUnit.DAYS);
             }
             sleep(5);
         }
@@ -99,7 +99,7 @@ final class TurtleSimActionLibClient extends AbstractNodeMain {
      * @param timeUnit
      */
     @Deprecated
-    public void synchronousCompleteGoal(final ShapeGoal shapeGoal, final long timeout, final TimeUnit timeUnit) {
+    public void synchronousCompleteGoal(final ShapeGoal shapeGoal, final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         Objects.requireNonNull(shapeGoal);
         final Stopwatch stopwatch = Stopwatch.createStarted();
 

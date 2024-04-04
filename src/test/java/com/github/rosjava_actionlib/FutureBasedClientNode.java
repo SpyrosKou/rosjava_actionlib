@@ -79,7 +79,7 @@ final class FutureBasedClientNode extends AbstractNodeMain implements ActionClie
      * @param timeUnit
      * @return
      */
-    public final boolean waitForClientStartAndServerConnection(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForClientStartAndServerConnection(final long timeout, final TimeUnit timeUnit) throws InterruptedException{
 
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
