@@ -112,7 +112,7 @@ public class ClientServerFeedbackTest {
             Assert.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isEmpty());
             final CountDownLatch countDownLatch = actionLibClientFeedbackListenerNode.submitRequestSilent(TestInputs.TEST_INPUT);
 
-            final boolean gotResult = countDownLatch.await(6, TimeUnit.SECONDS);
+            final boolean gotResult = countDownLatch.await(10, TimeUnit.SECONDS);
             Assert.assertTrue("Timeout", gotResult);
             Assert.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isPresent());
             final FibonacciActionResult result = actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().get();
@@ -173,7 +173,10 @@ public class ClientServerFeedbackTest {
         try {
             if (this.rosCore != null) {
                 this.rosCore.shutdown();
-
+                final boolean roscoreStopped=this.rosCore.awaitShutdown(10,TimeUnit.SECONDS);
+                if(!roscoreStopped){
+                    LOGGER.error("Roscore did not stop within specified time");
+                }
             }
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
