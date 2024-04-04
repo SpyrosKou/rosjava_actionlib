@@ -44,8 +44,8 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
 
     private ActionClient actionClient = null;
 
-    private Optional<FibonacciActionResult> result=Optional.empty();
-    private CountDownLatch resultCountdownLatch =new CountDownLatch(1);
+    private Optional<FibonacciActionResult> result = Optional.empty();
+    private CountDownLatch resultCountdownLatch = new CountDownLatch(1);
 
     @Override
     public GraphName getDefaultNodeName() {
@@ -53,7 +53,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
     }
 
 
-    public final boolean waitForStartAndConnection(final long timeout, final TimeUnit timeUnit) {
+    public final boolean waitForStartAndConnection(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
         Boolean nodeConnected = null;
         final Stopwatch stopwatch = Stopwatch.createStarted();
         while (nodeConnected == null) {
@@ -88,26 +88,27 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
         final FibonacciGoal fibonacciGoal = goalMessage.getGoal();
         // set Fibonacci parameter
         fibonacciGoal.setOrder(order);
-        this.result=Optional.empty();
+        this.result = Optional.empty();
 
-        this.resultCountdownLatch=new CountDownLatch(1);
+        this.resultCountdownLatch = new CountDownLatch(1);
         LOGGER.trace("Sending goal...");
-        final  var resultFuture=this.actionClient.sendGoal(goalMessage);
+        final var resultFuture = this.actionClient.sendGoal(goalMessage);
 
         final GoalID gid1 = goalMessage.getGoalId();
         LOGGER.trace("Sent goal with ID: " + gid1.getId());
         LOGGER.trace("Waiting for goal to complete...");
         return resultFuture;
     }
+
     public final CountDownLatch submitRequestSilent(final int order) {
 
-      this.submitRequest(order);
+        this.submitRequest(order);
         return this.resultCountdownLatch;
     }
-    public Optional<FibonacciActionResult> getFibonacciActionResultOptional(){
+
+    public Optional<FibonacciActionResult> getFibonacciActionResultOptional() {
         return this.result;
     }
-
 
 
     public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciFuture(final int order) {
@@ -133,10 +134,8 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
     @Override
     public void onStart(final ConnectedNode connectedNode) {
         this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(connectedNode, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
-
         this.actionClient.addActionClientResultListener(this);
         this.connectCountDownLatch.countDown();
-
     }
 
     /**
@@ -144,7 +143,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
      */
     @Override
     public void resultReceived(final FibonacciActionResult actionResult) {
-        this.result=Optional.ofNullable(actionResult);
+        this.result = Optional.ofNullable(actionResult);
 
         this.resultCountdownLatch.countDown();
         final FibonacciResult result = actionResult.getResult();
@@ -160,7 +159,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
         LOGGER.trace(stringBuilder.toString());
     }
 
-//    @Override
+    //    @Override
     public void feedbackReceived(FibonacciActionFeedback message) {
         final FibonacciFeedback result = message.getFeedback();
         final int[] sequence = result.getSequence();
