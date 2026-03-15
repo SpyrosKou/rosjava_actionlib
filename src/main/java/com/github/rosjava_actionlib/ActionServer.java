@@ -76,7 +76,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final Timer statusTick = new Timer();
     private final ConcurrentHashMap<String, ServerGoal<T_ACTION_GOAL>> goalIdToGoalStatusMap = new ConcurrentHashMap<>();
     private final Set<String> goalIdsPendingStatusPublicationRemoval = ConcurrentHashMap.newKeySet();
-    private GoalStatusArray goalStatusArray = null;
 
     //Non Final
     private Subscriber<T_ACTION_GOAL> goalSubscriber = null;
@@ -395,19 +394,9 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      */
     public final synchronized void sendStatusTick() {
         try {
-            if (this.goalStatusArray == null) {
-                this.goalStatusArray = this.messageFactory.newFromType(GoalStatusArray._TYPE);
-            }
-            List<GoalStatus> goalStatusList = this.goalStatusArray.getStatusList();
-            if (goalStatusList == null) {
-                goalStatusList = new ArrayList<>(this.goalIdToGoalStatusMap.size());
-                this.goalStatusArray.setStatusList(goalStatusList);
-            } else {
-                goalStatusList.clear();
-            }
-            if (goalStatusList instanceof ArrayList) {
-                ((ArrayList<GoalStatus>) goalStatusList).ensureCapacity(this.goalIdToGoalStatusMap.size());
-            }
+            final GoalStatusArray goalStatusArray = this.messageFactory.newFromType(GoalStatusArray._TYPE);
+            final List<GoalStatus> goalStatusList = new ArrayList<>(this.goalIdToGoalStatusMap.size());
+            goalStatusArray.setStatusList(goalStatusList);
 
             for (final ServerGoal<T_ACTION_GOAL> serverGoal : this.goalIdToGoalStatusMap.values()) {
                 final GoalStatus goalStatus = this.messageFactory.newFromType(GoalStatus._TYPE);
@@ -417,7 +406,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             }
 
 
-            this.sendStatus(this.goalStatusArray);
+            this.sendStatus(goalStatusArray);
             final List<String> goalIdsToEvict = new ArrayList<>(this.goalIdsPendingStatusPublicationRemoval);
             goalIdsToEvict.forEach(this::evictGoal);
 
