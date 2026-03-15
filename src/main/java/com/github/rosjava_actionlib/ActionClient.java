@@ -588,32 +588,25 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         if (statusMessage != null) {
             final List<GoalStatus> statusList = statusMessage.getStatusList();
 
-            if (this.goalManager.getActionGoal() != null && statusMessage.getStatusList() != null && !statusMessage.getStatusList().isEmpty()) {
+            if (this.goalManager.getActionGoal() != null && statusList != null && !statusList.isEmpty()) {
                 final String idToFind = this.goalManager.getActionGoal().getGoalId();
 
                 if (idToFind != null) {
-                    final List<GoalStatus> goalStatuses = statusList.stream().filter(goalStatusParam -> goalStatusParam.getGoalId().getId().equals(idToFind)).toList();
-                    final int goalStatusesSize = goalStatuses.size();
-                    if (LOGGER.isInfoEnabled() && !statusList.isEmpty()) {
-                        LOGGER.info("Found [" + goalStatusesSize + "] statuses for goal ID: " + idToFind + " action:[" + actionName + "]");
-
-                    }
-                    if (goalStatusesSize > 0) {
-                        goalStatus = goalStatuses.stream().findAny().orElse(null);
-                        try {
-                            if (goalStatus != null) {
-                                for (final GoalStatus status : goalStatuses) {
-                                    goalStatus = goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) >= 0 ? goalStatus : status;
-                                    if (LOGGER.isTraceEnabled()) {
-                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() + "(" + this.goalStatusToString.getStatus(goalStatus.getStatus()) + ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
-                                    }
-
-                                }
+                    try {
+                        for (final GoalStatus status : statusList) {
+                            if (status != null
+                                    && status.getGoalId() != null
+                                    && idToFind.equals(status.getGoalId().getId())
+                                    && (goalStatus == null || goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) < 0)) {
+                                goalStatus = status;
                             }
-                        } catch (final Exception e) {
-                            if (LOGGER.isErrorEnabled()) {
-                                LOGGER.error(ExceptionUtils.getStackTrace(e));
-                            }
+                        }
+                        if (goalStatus != null && LOGGER.isTraceEnabled()) {
+                            LOGGER.trace("Latest status: [" + goalStatus.getStatus() + "(" + this.goalStatusToString.getStatus(goalStatus.getStatus()) + ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
+                        }
+                    } catch (final Exception e) {
+                        if (LOGGER.isErrorEnabled()) {
+                            LOGGER.error(ExceptionUtils.getStackTrace(e));
                         }
                     }
 
