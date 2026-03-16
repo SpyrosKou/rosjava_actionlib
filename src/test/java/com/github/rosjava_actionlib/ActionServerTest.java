@@ -7,7 +7,7 @@ import org.junit.Test;
 public class ActionServerTest {
 
     @Test
-    public void terminalStatusesAreMarkedForEviction() {
+    public final void terminalStatusesAreMarkedForEviction() {
         Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.REJECTED));
         Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.RECALLED));
         Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.PREEMPTED));
@@ -16,7 +16,7 @@ public class ActionServerTest {
     }
 
     @Test
-    public void nonTerminalStatusesAreNotMarkedForEviction() {
+    public final void nonTerminalStatusesAreNotMarkedForEviction() {
         Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.PENDING));
         Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.ACTIVE));
         Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.RECALLING));

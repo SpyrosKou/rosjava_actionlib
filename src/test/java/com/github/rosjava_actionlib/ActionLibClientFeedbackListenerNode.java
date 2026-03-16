@@ -54,28 +54,24 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
 
 
     public final boolean waitForStartAndConnection(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
-        Boolean nodeConnected = null;
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        while (nodeConnected == null) {
-            try {
-                nodeConnected = this.connectCountDownLatch.await(timeout, timeUnit);
-                return nodeConnected;
-            } catch (final InterruptedException ie) {
-                LOGGER.error(ExceptionUtils.getStackTrace(ie));
-
-            } catch (final Exception e) {
-                LOGGER.error(ExceptionUtils.getStackTrace(e));
-            }
+        final boolean nodeConnected;
+        try {
+            nodeConnected = this.connectCountDownLatch.await(timeout, timeUnit);
+        } catch (final InterruptedException ie) {
+            LOGGER.error(ExceptionUtils.getStackTrace(ie));
+            throw ie;
+        } catch (final Exception e) {
+            LOGGER.error(ExceptionUtils.getStackTrace(e));
+            return false;
         }
 
-        if (nodeConnected != null && nodeConnected) {
-
+        if (nodeConnected) {
             final boolean serverStarted = this.actionClient.waitForServerConnection(timeout - stopwatch.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
             LOGGER.trace("Action server started.\n");
             return serverStarted;
-
         } else {
-            LOGGER.trace("No actionlib server found after waiting for " + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " milliseconds!");
+            LOGGER.trace("No actionlib server found after waiting for {} milliseconds!", stopwatch.elapsed(TimeUnit.MILLISECONDS));
             return false;
         }
 
@@ -95,7 +91,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
         final var resultFuture = this.actionClient.sendGoal(goalMessage);
 
         final GoalID gid1 = goalMessage.getGoalId();
-        LOGGER.trace("Sent goal with ID: " + gid1.getId());
+        LOGGER.trace("Sent goal with ID: {}", gid1.getId());
         LOGGER.trace("Waiting for goal to complete...");
         return resultFuture;
     }
@@ -146,32 +142,34 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
         this.result = Optional.ofNullable(actionResult);
 
         this.resultCountdownLatch.countDown();
-        final FibonacciResult result = actionResult.getResult();
-        final int[] sequence = result.getSequence();
+        if (LOGGER.isTraceEnabled()) {
+            final FibonacciResult result = actionResult.getResult();
+            final int[] sequence = result.getSequence();
 
-        final StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("Got Fibonacci result sequence: ");
-        for (int i = 0; i < sequence.length; i++) {
-            stringBuilder.append(Integer.toString(sequence[i]));
-            stringBuilder.append("");
+            final StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Got Fibonacci result sequence: ");
+            for (int i = 0; i < sequence.length; i++) {
+                stringBuilder.append(Integer.toString(sequence[i]));
+                stringBuilder.append("");
+            }
+
+            LOGGER.trace(stringBuilder.toString());
         }
-
-        LOGGER.trace(stringBuilder.toString());
     }
 
     //    @Override
-    public void feedbackReceived(FibonacciActionFeedback message) {
-        final FibonacciFeedback result = message.getFeedback();
-        final int[] sequence = result.getSequence();
-
-
-        final StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("Got Fibonacci feedback sequence: ");
-        for (int i = 0; i < sequence.length; i++) {
-            stringBuilder.append(sequence[i]);
-            stringBuilder.append("");
+    public void feedbackReceived(final FibonacciActionFeedback message) {
+        if (LOGGER.isTraceEnabled()) {
+            final FibonacciFeedback result = message.getFeedback();
+            final int[] sequence = result.getSequence();
+            final StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Got Fibonacci feedback sequence: ");
+            for (int i = 0; i < sequence.length; i++) {
+                stringBuilder.append(sequence[i]);
+                stringBuilder.append("");
+            }
+            LOGGER.trace(stringBuilder.toString());
         }
-        LOGGER.trace(stringBuilder.toString());
     }
 
     /**
@@ -190,7 +188,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
             LOGGER.trace(stringJoiner.toString());
         }
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("Goal Current state: " + actionClient.getGoalState());
+            LOGGER.info("Goal Current state: {}", actionClient.getGoalState());
         }
 
     }

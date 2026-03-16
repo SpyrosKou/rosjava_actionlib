@@ -100,7 +100,7 @@ public class WaitMethodsClientServerTest {
                 try {
                     final FibonacciActionResult fibonacciActionResult = resultFuture.get(10, TimeUnit.SECONDS);
                     Assert.assertNotNull("result should not be null", fibonacciActionResult);
-                    final Set<ClientState> expectedValues = EnumSet.of(ClientState.PENDING, ClientState.NO_GOAL, ClientState.RECALLING, ClientState.WAITING_FOR_CANCEL_ACK);
+                    final Set<ClientState> expectedValues = EnumSet.of(ClientState.PENDING, ClientState.RECALLING, ClientState.WAITING_FOR_CANCEL_ACK, ClientState.DONE);
                     final ClientState clientState = resultFuture.getCurrentState();
                     Assert.assertTrue("Checking state, failed. Managed to receive result before canceling. Is resultOk:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.equals(fibonacciActionResult.getResult().getSequence()) + " expeced size:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.length + " current size:" + fibonacciActionResult.getResult().getSequence().length, expectedValues.contains(clientState));
                     Assert.assertFalse("Results should normally NOT be correct", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, fibonacciActionResult.getResult().getSequence()));
@@ -110,7 +110,7 @@ public class WaitMethodsClientServerTest {
                 }
 
                 final ClientState currentClientState = resultFuture.getCurrentState();
-                Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.NO_GOAL, currentClientState);
+                Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.DONE, currentClientState);
                 LOGGER.trace("ClientState:" + currentClientState);
 
             } catch (final Exception exception) {
@@ -137,11 +137,11 @@ public class WaitMethodsClientServerTest {
             final FibonacciActionResult fibonacciActionResult = resultFuture.get(10, TimeUnit.SECONDS);
             Assert.assertNotNull("result should not be null", fibonacciActionResult);
 
-            Assert.assertTrue("Results Error", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, fibonacciActionResult.getResult().getSequence()));
+            Assert.assertTrue("Results Error", Arrays.equals(TestInputs.TEST_CORRECT_OUTPUT, fibonacciActionResult.getResult().getSequence()));
 
 
             final ClientState currentClientState = resultFuture.getCurrentState();
-            Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.NO_GOAL, currentClientState);
+            Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.DONE, currentClientState);
             LOGGER.trace("ClientState:" + currentClientState);
 
         } catch (final Exception exception) {

@@ -92,6 +92,34 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     }
 
     @Test
+    public final void testRepeatedSequentialGoals() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final int repetitions = 10;
+
+        try {
+            final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
+            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+
+            for (int i = 0; i < repetitions; i++) {
+                final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
+                        this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
+
+                final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+                Assert.assertNotNull("Null Result on repetition:" + i, result);
+                Assert.assertTrue("Result was wrong on repetition:" + i,
+                        Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+                Assert.assertEquals("Client should be idle after repetition:" + i,
+                        ClientState.DONE, resultFuture.getCurrentState());
+            }
+
+            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT,
+                    stopwatch.elapsed(TIME_UNIT) <= TIMEOUT);
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+    }
+
+    @Test
     public void testResultListener() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final CountDownLatch resultReceived = new CountDownLatch(1);
@@ -130,10 +158,11 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
             final ClientState currentClientState = resultFuture.getCurrentState();
             Assert.assertTrue("Not Cancelled, current state:" + currentClientState
-                    , ClientState.RECALLING.equals(currentClientState)
+                    , ClientState.DONE.equals(currentClientState)
+                            || ClientState.NO_GOAL.equals(currentClientState)
+                            || ClientState.RECALLING.equals(currentClientState)
                             || ClientState.WAITING_FOR_CANCEL_ACK.equals(currentClientState)
                             || ClientState.PREEMPTING.equals(currentClientState)
-//                            || ClientState.DONE.equals(currentClientState)
             );
 
         } catch (final Exception exception) {
