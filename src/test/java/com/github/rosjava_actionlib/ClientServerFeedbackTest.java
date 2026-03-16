@@ -49,13 +49,13 @@ public class ClientServerFeedbackTest {
     public void before() {
         try {
             final boolean coreStartedOk ;
-            if (USE_EXTERNAL_ROS_MASTER) {
+            if (!USE_EXTERNAL_ROS_MASTER) {
                 this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
                 this.rosCore.start();
                 coreStartedOk = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
                 Assert.assertTrue("Core not started", coreStartedOk);
             }else{
-                coreStartedOk = false;
+                coreStartedOk = true;
             }
             Assert.assertTrue(USE_EXTERNAL_ROS_MASTER || coreStartedOk);
             this.asyncGoalRunnerActionLibServer = new AsyncGoalRunnerActionLibServer(false);
@@ -142,7 +142,7 @@ public class ClientServerFeedbackTest {
             final FibonacciActionResult result = resulFutureCancelled.get(5, TimeUnit.SECONDS);
             LOGGER.trace("Finished");
             Assert.assertNotNull("Result should not be null", result);
-            Assert.assertTrue("Result should be incomplete", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, result.getResult().getSequence()));
+            Assert.assertFalse("Result should be incomplete", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, result.getResult().getSequence()));
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));

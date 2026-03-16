@@ -151,9 +151,8 @@ class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionS
 
                     if (!cancelingStatuses.contains(this.actionServer.getGoalStatus(id))) {
                         this.actionServer.setSucceed(id);
-
+                        result.getStatus().setStatus(GoalStatus.SUCCEEDED);
                         LOGGER.trace("Succeeded goal:" + id);
-                        return result;
                     } else {
                         this.actionServer.setCancel(id);
                         result.getStatus().setStatus(GoalStatus.PREEMPTED);
@@ -161,7 +160,6 @@ class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionS
                     }
                     this.actionServer.sendStatusTick();
                     this.actionServer.sendResult(result);
-
 
                     this.goals.remove(id);
                     LOGGER.trace("Finishing the execution of GOAL:" + id);

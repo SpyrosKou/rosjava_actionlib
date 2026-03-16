@@ -18,11 +18,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 abstract class TopicParticipantListener {
@@ -51,12 +49,12 @@ abstract class TopicParticipantListener {
     final void callOnceOnConnection() {
         if (this.hasCallOnceBeenCalled.compareAndSet(false, true)) {
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Calling once on connection for 1st time." + this.toString());
+                LOGGER.trace("Calling once on connection for 1st time.{}", this.toString());
             }
             this.callOnceOnConnection.accept(this.topicName);
         } else {
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Do nothing. Already called." + this.toString());
+                LOGGER.trace("Do nothing. Already called.{}", this.toString());
             }
         }
     }
@@ -76,7 +74,35 @@ abstract class TopicParticipantListener {
     }
 
     public final boolean isRegistered() {
-        return this.isRegistered.get();
+        if (this.isRegistered.get()) {
+            return true;
+        }
+        return this.refreshRegistrationFromMaster();
+    }
+
+    private final boolean refreshRegistrationFromMaster() {
+        try {
+            final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
+            if (this.isRegisteredWithMaster(masterStateClient)) {
+                this.isRegistered.set(true);
+                this.registrationCountDownLatch.countDown();
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Observed registration via master state for topic:{} node:{}", this.topicName, this.connectedNode.getName());
+                }
+                return true;
+            }
+        } catch (final Exception exception) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Could not refresh registration from master for topic:{}", this.topicName, exception);
+            }
+        }
+        return false;
+    }
+
+    protected final boolean isRegisteredWithMaster(final MasterStateClient masterStateClient) {
+        final String nodeName = this.getConnectedNode().getName().toString();
+        final String topicName=this.getTopicName();
+        return masterStateClient.isRegisteredWithMaster(nodeName,topicName);
     }
 
     public final boolean waitForRegistration() throws InterruptedException {
@@ -94,7 +120,7 @@ abstract class TopicParticipantListener {
         }
         final boolean result = this.isRegistered();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+            LOGGER.trace("Duration:{} result:[{}]", stopwatch.elapsed(TimeUnit.MILLISECONDS), result);
         }
         return result;
     }
@@ -114,7 +140,7 @@ abstract class TopicParticipantListener {
                 }
                 final boolean result = this.isRegistered();
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Registering timed out. Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+                    LOGGER.trace("Registering timed out. Duration:{} result:[{}]", stopwatch.elapsed(TimeUnit.MILLISECONDS), result);
                 }
                 return result;
             } catch (final InterruptedException interruptedException) {
@@ -126,7 +152,7 @@ abstract class TopicParticipantListener {
         }
         final boolean result = this.isRegistered();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Registered in time. Duration:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " result:[" + result + "]");
+            LOGGER.trace("Registered in time. Duration:{} result:[{}]", stopwatch.elapsed(TimeUnit.MILLISECONDS), result);
         }
         return result;
     }
@@ -136,7 +162,7 @@ abstract class TopicParticipantListener {
         this.isRegistered.set(false);
         this.registrationCountDownLatch.countDown();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Shutdown topicParticipant for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
+            LOGGER.trace("Shutdown topicParticipant for topic:{} type:{}", topicParticipant.getTopicName(), topicParticipant.getTopicMessageType());
         }
     }
 
@@ -145,7 +171,7 @@ abstract class TopicParticipantListener {
         this.isRegistered.set(true);
         this.registrationCountDownLatch.countDown();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Master Registration success for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
+            LOGGER.trace("Master Registration success for topic:{} type:{}", topicParticipant.getTopicName(), topicParticipant.getTopicMessageType());
         }
     }
 
@@ -153,7 +179,7 @@ abstract class TopicParticipantListener {
         this.isRegistered.set(false);
         this.registrationCountDownLatch.countDown();
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Master Registration Failure for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
+            LOGGER.debug("Master Registration Failure for topic:{} type:{}", topicParticipant.getTopicName(), topicParticipant.getTopicMessageType());
         }
     }
 
@@ -161,7 +187,7 @@ abstract class TopicParticipantListener {
         this.isRegistered.set(false);
         this.registrationCountDownLatch.countDown();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Master UnRegistration Success for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
+            LOGGER.trace("Master UnRegistration Success for topic:{} type:{}", topicParticipant.getTopicName(), topicParticipant.getTopicMessageType());
         }
     }
 
@@ -169,7 +195,7 @@ abstract class TopicParticipantListener {
         this.isRegistered.set(false);
         this.registrationCountDownLatch.countDown();
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Master UnRegistration Failure for topic:" + topicParticipant.getTopicName() + " type:" + topicParticipant.getTopicMessageType());
+            LOGGER.debug("Master UnRegistration Failure for topic:{} type:{}", topicParticipant.getTopicName(), topicParticipant.getTopicMessageType());
         }
     }
 

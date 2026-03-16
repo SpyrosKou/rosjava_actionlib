@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created at 2020-04-19
@@ -34,6 +35,11 @@ import java.util.Objects;
 final class ActionLibMessagesUtils {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     public static final String UNKNOWN_GOAL_STATUS = "UNKNOWN GOAL STATUS";
+    private static final ConcurrentHashMap<MethodCacheKey, Method> GETTER_METHOD_CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<MethodCacheKey, Method> SETTER_METHOD_CACHE = new ConcurrentHashMap<>();
+
+    private record MethodCacheKey(Class<?> ownerClass, String methodName, Class<?> argumentClass) {
+    }
 
 
     /**
@@ -149,9 +155,7 @@ final class ActionLibMessagesUtils {
         R_SUB_MESSAGE subMessage = null;
 
         try {
-            //"getStatus"
-            final Method m = message.getClass().getMethod(getterMethodName);
-            m.setAccessible(true); // workaround for known bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6924232
+            final Method m = getCachedGetter(message.getClass(), getterMethodName);
             subMessage = (R_SUB_MESSAGE) m.invoke(message);
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
@@ -172,14 +176,100 @@ final class ActionLibMessagesUtils {
         Objects.requireNonNull(message);
         Objects.requireNonNull(setterMethodName);
         try {
-            final Method m = message.getClass().getMethod(setterMethodName);
-            m.setAccessible(true); // workaround for known bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6924232
+            final Method m = getCachedSetter(message.getClass(), setterMethodName, submessage);
             m.invoke(message, submessage);
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
         }
 
 
+    }
+
+    private static final Method getCachedGetter(final Class<?> messageClass, final String getterMethodName) throws NoSuchMethodException {
+        final MethodCacheKey cacheKey = new MethodCacheKey(messageClass, getterMethodName, Void.class);
+        final Method cachedMethod = GETTER_METHOD_CACHE.get(cacheKey);
+        if (cachedMethod != null) {
+            return cachedMethod;
+        }
+
+        final Method method = messageClass.getMethod(getterMethodName);
+        method.setAccessible(true); // workaround for known bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6924232
+        final Method existingMethod = GETTER_METHOD_CACHE.putIfAbsent(cacheKey, method);
+        return existingMethod == null ? method : existingMethod;
+    }
+
+    private static final Method getCachedSetter(final Class<?> messageClass, final String setterMethodName, final Object submessage) throws NoSuchMethodException {
+        final Class<?> argumentClass = submessage == null ? Void.class : submessage.getClass();
+        final MethodCacheKey cacheKey = new MethodCacheKey(messageClass, setterMethodName, argumentClass);
+        final Method cachedMethod = SETTER_METHOD_CACHE.get(cacheKey);
+        if (cachedMethod != null) {
+            return cachedMethod;
+        }
+
+        final Method method = findCompatibleSetter(messageClass, setterMethodName, argumentClass);
+        method.setAccessible(true); // workaround for known bug http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6924232
+        final Method existingMethod = SETTER_METHOD_CACHE.putIfAbsent(cacheKey, method);
+        return existingMethod == null ? method : existingMethod;
+    }
+
+    private static final Method findCompatibleSetter(final Class<?> messageClass, final String setterMethodName, final Class<?> argumentClass) throws NoSuchMethodException {
+        Method compatibleMethod = null;
+        for (final Method method : messageClass.getMethods()) {
+            if (!setterMethodName.equals(method.getName()) || method.getParameterCount() != 1) {
+                continue;
+            }
+            final Class<?> parameterType = method.getParameterTypes()[0];
+            if (isParameterCompatible(parameterType, argumentClass)) {
+                if (parameterType.equals(argumentClass) || wrapPrimitiveType(parameterType).equals(argumentClass)) {
+                    return method;
+                }
+                if (compatibleMethod == null) {
+                    compatibleMethod = method;
+                }
+            }
+        }
+        if (compatibleMethod != null) {
+            return compatibleMethod;
+        }
+        throw new NoSuchMethodException(messageClass.getName() + "." + setterMethodName + "(" + argumentClass.getName() + ")");
+    }
+
+    private static final boolean isParameterCompatible(final Class<?> parameterType, final Class<?> argumentClass) {
+        if (argumentClass == Void.class) {
+            return !parameterType.isPrimitive();
+        }
+        return parameterType.isAssignableFrom(argumentClass) || wrapPrimitiveType(parameterType).isAssignableFrom(argumentClass);
+    }
+
+    private static final Class<?> wrapPrimitiveType(final Class<?> type) {
+        if (!type.isPrimitive()) {
+            return type;
+        }
+        if (type == Boolean.TYPE) {
+            return Boolean.class;
+        }
+        if (type == Byte.TYPE) {
+            return Byte.class;
+        }
+        if (type == Character.TYPE) {
+            return Character.class;
+        }
+        if (type == Double.TYPE) {
+            return Double.class;
+        }
+        if (type == Float.TYPE) {
+            return Float.class;
+        }
+        if (type == Integer.TYPE) {
+            return Integer.class;
+        }
+        if (type == Long.TYPE) {
+            return Long.class;
+        }
+        if (type == Short.TYPE) {
+            return Short.class;
+        }
+        return type;
     }
 }
 

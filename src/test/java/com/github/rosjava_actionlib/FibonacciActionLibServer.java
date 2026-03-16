@@ -113,13 +113,14 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
         if (this.currentGoal == null) {
             this.currentGoal = goal;
             this.actionServer.setAccepted(this.currentGoal.getGoalId().getId());
-            LOGGER.trace("Goal accepted.");
+            LOGGER.trace("Goal accepted with goalId:[" + goal.getGoalId().getId() + "]");
             final FibonacciActionFeedback feedback = this.actionServer.newFeedbackMessage();
             feedback.getStatus().setStatus(GoalStatus.ACTIVE);
             this.actionServer.sendFeedback(feedback);
 
             final FibonacciActionResult result = this.actionServer.newResultMessage();
             copyGoal(goal.getGoalId(), result.getStatus().getGoalId());
+            LOGGER.trace("Constructed result for goalId:[" + result.getStatus().getGoalId().getId() + "] from goalId:[" + goal.getGoalId().getId() + "]");
             final int input = goal.getGoal().getOrder();
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Renaming Thread" + Thread.currentThread().getName());
@@ -135,6 +136,7 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
                 result.getStatus().setStatus(GoalStatus.SUCCEEDED);
                 this.actionServer.setSucceed(goal.getGoalId().getId());
             }
+            LOGGER.trace("About to publish result for goalId:[" + result.getStatus().getGoalId().getId() + "] status:[" + result.getStatus().getStatus() + "]");
             this.actionServer.sendResult(result);
             this.currentGoal=null;
             return Optional.empty();

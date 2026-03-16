@@ -57,10 +57,12 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      */
     private static final class ServerGoal<T_ACTION_GOAL_TYPE extends Message> {
         private final T_ACTION_GOAL_TYPE goal;
+        private final GoalID goalId;
         private final ServerStateMachine stateMachine = new ServerStateMachine();
 
-        private ServerGoal(final T_ACTION_GOAL_TYPE goal) {
+        private ServerGoal(final T_ACTION_GOAL_TYPE goal, final GoalID goalId) {
             this.goal = goal;
+            this.goalId = goalId;
         }
     }
 
@@ -73,7 +75,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final MessageFactory messageFactory;
     private final Timer statusTick = new Timer();
     private final ConcurrentHashMap<String, ServerGoal<T_ACTION_GOAL>> goalIdToGoalStatusMap = new ConcurrentHashMap<>();
-
+    private final Set<String> goalIdsPendingStatusPublicationRemoval = ConcurrentHashMap.newKeySet();
 
     //Non Final
     private Subscriber<T_ACTION_GOAL> goalSubscriber = null;
@@ -140,12 +142,49 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     }
 
     /**
-     * Publish result message on the /result topic.
+     * Publish a result message on the /result topic.
      *
      * @param result The action result message to send.
      */
     public final void sendResult(final T_ACTION_RESULT result) {
+        if (LOGGER.isTraceEnabled()) {
+            final GoalStatus goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
+            final String goalId = goalStatus != null && goalStatus.getGoalId() != null ? goalStatus.getGoalId().getId() : null;
+            LOGGER.trace("Publishing result on action:[{}] with goalId:[{}]", this.actionName, goalId);
+        }
         this.resultPublisher.publish(result);
+        this.evictGoalForResult(result);
+    }
+
+    private final void evictGoal(final String goalId) {
+        if (goalId == null) {
+            return;
+        }
+        this.goalIdsPendingStatusPublicationRemoval.remove(goalId);
+        this.goalIdToGoalStatusMap.remove(goalId);
+    }
+
+    private final void evictGoalForResult(final T_ACTION_RESULT result) {
+        final GoalStatus goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
+        if (goalStatus == null || goalStatus.getGoalId() == null) {
+            return;
+        }
+        this.evictGoal(goalStatus.getGoalId().getId());
+    }
+
+    static final boolean isTerminalStatus(final byte status) {
+        return status == GoalStatus.REJECTED
+                || status == GoalStatus.RECALLED
+                || status == GoalStatus.PREEMPTED
+                || status == GoalStatus.SUCCEEDED
+                || status == GoalStatus.ABORTED;
+    }
+
+    private final void markGoalForRemovalAfterStatusPublication(final String goalIdString) {
+        if (goalIdString == null) {
+            return;
+        }
+        this.goalIdsPendingStatusPublicationRemoval.add(goalIdString);
     }
 
     /**
@@ -308,10 +347,11 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      */
     public final void gotGoal(final T_ACTION_GOAL goal) {
         if (goal != null) {
-            final String goalIdString = getGoalId(goal).getId();
+            final GoalID goalId = getGoalId(goal);
+            final String goalIdString = goalId.getId();
 
             // start tracking this newly received goal
-            this.goalIdToGoalStatusMap.put(goalIdString, new ServerGoal<>(goal));
+            this.goalIdToGoalStatusMap.put(goalIdString, new ServerGoal<>(goal, goalId));
 
             //this#actionServerListener is guaranteed to never be null, this call is for information purposes only
             this.actionServerListener.goalReceived(goal);
@@ -327,13 +367,15 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
                 } else {
                     this.setRejected(goalIdString);
                 }
-            }else{
-                LOGGER.trace("Goal:"+goalIdString+" should be handled by user");
+            } else {
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Goal :{} should be handled by user", goalIdString);
+                }
             }
 
         } else {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Got null goal:" + this.toString());
+                LOGGER.debug("Got null goal:{}",this.toString());
             }
         }
 
@@ -355,21 +397,23 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Publishes the current status on the server's status topic.
      * This is used like a heartbeat to update the status of every tracked goal.
      */
-    public final void sendStatusTick() {
+    public final synchronized void sendStatusTick() {
         try {
-            final GoalStatusArray status = this.messageFactory.newFromType(GoalStatusArray._TYPE);
-            final List<GoalStatus> goalStatusList = new ArrayList<>();
+            final GoalStatusArray goalStatusArray = this.messageFactory.newFromType(GoalStatusArray._TYPE);
+            final List<GoalStatus> goalStatusList = new ArrayList<>(this.goalIdToGoalStatusMap.size());
+            goalStatusArray.setStatusList(goalStatusList);
 
             for (final ServerGoal<T_ACTION_GOAL> serverGoal : this.goalIdToGoalStatusMap.values()) {
-
                 final GoalStatus goalStatus = this.messageFactory.newFromType(GoalStatus._TYPE);
-                goalStatus.setGoalId(getGoalId(serverGoal.goal));
+                goalStatus.setGoalId(serverGoal.goalId);
                 goalStatus.setStatus((byte) serverGoal.stateMachine.getState());
                 goalStatusList.add(goalStatus);
             }
 
-            status.setStatusList(goalStatusList);
-            this.sendStatus(status);
+
+            this.sendStatus(goalStatusArray);
+            final List<String> goalIdsToEvict = new ArrayList<>(this.goalIdsPendingStatusPublicationRemoval);
+            goalIdsToEvict.forEach(this::evictGoal);
 
         } catch (final Exception exception) {
             LOGGER.error(ExceptionUtils.getStackTrace(exception));
@@ -411,14 +455,14 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @see actionlib_msgs.GoalStatus
      */
     public final byte getGoalStatus(final String goalId) {
-        byte ret = 0;
+        final byte result;
 
         if (this.goalIdToGoalStatusMap.containsKey(goalId)) {
-            ret = this.goalIdToGoalStatusMap.get(goalId).stateMachine.getState();
+            result = this.goalIdToGoalStatusMap.get(goalId).stateMachine.getState();
         } else {
-            ret = -100;
+            result = -100;
         }
-        return ret;
+        return result;
     }
 
     /**
@@ -454,7 +498,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * The user requested to cancel the goal
-     *
      */
     public final void setCancelRequested(final String goalIdString) {
         this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL_REQUEST);
@@ -462,7 +505,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     /**
      * The server cancelled the goal
-     *
      */
     public final void setCancel(final String goalIdString) {
         this.recordTransitionEvent(goalIdString, ServerStateMachine.Events.CANCEL);
@@ -483,9 +525,11 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     }
 
     private final void recordTransitionEvent(final String goalIdString, final int event) {
-        this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) ->
-        {
-            this.goalIdToGoalStatusMap.get(goalIdString).stateMachine.transition(event);
+        this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) -> {
+            final byte nextStatus = (byte) value.stateMachine.transition(event);
+            if (isTerminalStatus(nextStatus)) {
+                this.markGoalForRemovalAfterStatusPublication(goalIdString);
+            }
             return value;
         });
     }
@@ -502,8 +546,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Publishes the server's topics and subscribes to the client's topics.
      */
     private final void connect(final ConnectedNode node) {
-        publishServer(node);
-        subscribeToClient(node);
+        this.publishServer(node);
+        this.subscribeToClient(node);
     }
 
     /**
@@ -512,8 +556,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * The programmer need to ensure that this method is called when the program has finished using this {@link ActionServer}
      */
     public final void finish() {
-        unpublishServer();
-        unsubscribeToClient();
+        this.unpublishServer();
+        this.unsubscribeToClient();
 
     }
 

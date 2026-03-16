@@ -63,7 +63,7 @@ final class TopicSubscriberListener<T extends Message> extends TopicParticipantL
     }
 
     public final boolean isPublisherConnected() {
-        final boolean connected = !this.knownPublishersCount.equals(0L);
+        final boolean connected = this.knownPublishersCount.get() > 0L;
         final boolean result;
         if (connected) {
             result = true;

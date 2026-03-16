@@ -199,7 +199,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
         } else {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Internal method for:" + topicName + " Called multiple times. Node:" + (this.connectedNode == null ? null : this.connectedNode.getName()));
+                LOGGER.debug("Internal method for:{} Called multiple times. Node:{}", topicName, this.connectedNode == null ? null : this.connectedNode.getName());
             }
         }
     }
@@ -310,6 +310,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         } else {
             gid.setId(id);
         }
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Prepared goal for action:[{}] with goalId:[{}]", this.actionName, gid.getId());
+        }
 
         final ActionFuture<T_ACTION_GOAL, T_ACTION_FEEDBACK, T_ACTION_RESULT> actionClientFuture = ActionClientFuture.createFromGoal(this, actionGoalMessage);
         this.sendGoalWire(actionGoalMessage);
@@ -322,6 +325,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     final void sendGoalWire(final T_ACTION_GOAL actionGoalMessage) {
         this.goalManager.setGoal(actionGoalMessage);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Publishing goal on action:[{}] with goalId:[{}]", this.actionName, this.goalManager.getActionGoal().getGoalId());
+        }
         this.goalPublisher.publish(actionGoalMessage);
     }
 
@@ -502,6 +508,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private final void gotResult(final T_ACTION_RESULT resultMessage) {
         final ActionResult<T_ACTION_RESULT> actionResultMessage = new ActionResult<>(resultMessage);
         final GoalID goalID = actionResultMessage.getGoalStatusMessage().getGoalId();
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Received result for action:[{}] with result goalId:[{}] while current goalId:[{}]", this.actionName, goalID.getId(), this.goalManager.getActionGoal().getGoalId());
+        }
         if (this.goalManager.getActionGoal().getGoalId().equals(goalID.getId())) {
             this.goalManager.updateStatus(actionResultMessage.getGoalStatusMessage().getStatus());
 
@@ -515,11 +524,11 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             try {
                 this.sendCancel(goalID);
             } catch (final Exception exception) {
-                LOGGER.error("Error while cancelling goal of received result" + ExceptionUtils.getStackTrace(exception));
+                LOGGER.error("Error while cancelling goal of received result{}", ExceptionUtils.getStackTrace(exception));
             }
         } else {
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Received and ignored GoalId:" + goalID.getId() + " because current client goal id==" + this.goalManager.getActionGoal().getGoalId());
+                LOGGER.trace("Received and ignored GoalId:{} because current client goal id=={}", goalID.getId(), this.goalManager.getActionGoal().getGoalId());
             }
         }
     }
@@ -568,7 +577,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         } else {
             if (LOGGER.isDebugEnabled()) {
                 if (message.getStatusList() != null && !message.getStatusList().isEmpty()) {
-                    LOGGER.debug("Status update is not for current goal! Action:[" + this.actionName + "]");
+                    LOGGER.debug("Status update is not for current goal! Action:[{}]", this.actionName);
                 }
             }
         }
@@ -588,32 +597,25 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         if (statusMessage != null) {
             final List<GoalStatus> statusList = statusMessage.getStatusList();
 
-            if (this.goalManager.getActionGoal() != null && statusMessage.getStatusList() != null && !statusMessage.getStatusList().isEmpty()) {
+            if (this.goalManager.getActionGoal() != null && statusList != null && !statusList.isEmpty()) {
                 final String idToFind = this.goalManager.getActionGoal().getGoalId();
 
                 if (idToFind != null) {
-                    final List<GoalStatus> goalStatuses = statusList.stream().filter(goalStatusParam -> goalStatusParam.getGoalId().getId().equals(idToFind)).toList();
-                    final int goalStatusesSize = goalStatuses.size();
-                    if (LOGGER.isInfoEnabled() && !statusList.isEmpty()) {
-                        LOGGER.info("Found [" + goalStatusesSize + "] statuses for goal ID: " + idToFind + " action:[" + actionName + "]");
-
-                    }
-                    if (goalStatusesSize > 0) {
-                        goalStatus = goalStatuses.stream().findAny().orElse(null);
-                        try {
-                            if (goalStatus != null) {
-                                for (final GoalStatus status : goalStatuses) {
-                                    goalStatus = goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) >= 0 ? goalStatus : status;
-                                    if (LOGGER.isTraceEnabled()) {
-                                        LOGGER.trace("Latest status: [" + goalStatus.getStatus() + "(" + this.goalStatusToString.getStatus(goalStatus.getStatus()) + ")," + goalStatus.getText() + "] for goal with ID: " + idToFind + " action:[" + actionName + "]");
-                                    }
-
-                                }
+                    try {
+                        for (final GoalStatus status : statusList) {
+                            if (status != null
+                                    && status.getGoalId() != null
+                                    && idToFind.equals(status.getGoalId().getId())
+                                    && (goalStatus == null || goalStatus.getGoalId().getStamp().compareTo(status.getGoalId().getStamp()) < 0)) {
+                                goalStatus = status;
                             }
-                        } catch (final Exception e) {
-                            if (LOGGER.isErrorEnabled()) {
-                                LOGGER.error(ExceptionUtils.getStackTrace(e));
-                            }
+                        }
+                        if (goalStatus != null && LOGGER.isTraceEnabled()) {
+                            LOGGER.trace("Latest status: [{}({}),{}] for goal with ID: {} action:[{}]", goalStatus.getStatus(), this.goalStatusToString.getStatus(goalStatus.getStatus()), goalStatus.getText(), idToFind, actionName);
+                        }
+                    } catch (final Exception e) {
+                        if (LOGGER.isErrorEnabled()) {
+                            LOGGER.error(ExceptionUtils.getStackTrace(e));
                         }
                     }
 
@@ -681,12 +683,12 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         boolean result = this.goalTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         if (!result && !debugShown && LOGGER.isDebugEnabled()) {
             debugShown = true;
-            LOGGER.debug("waitForSubscriber goal did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+            LOGGER.debug("waitForSubscriber goal did not connect after:{} {} while timeout={} {}", stopwatch.elapsed(timeUnit), timeUnit.name(), timeout, timeUnit.name());
         }
         result = result && this.cancelTopicPublisherListener.waitForSubscriber(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         if (!result && !debugShown && LOGGER.isDebugEnabled()) {
             debugShown = true;
-            LOGGER.debug("waitForSubscriber cancel did not connect after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name() + " while timeout=" + timeout + " " + timeUnit.name());
+            LOGGER.debug("waitForSubscriber cancel did not connect after:{} {} while timeout={} {}", stopwatch.elapsed(timeUnit), timeUnit.name(), timeout, timeUnit.name());
         }
         return result;
     }
@@ -704,17 +706,17 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final boolean registered = this.waitForRegistration(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Action:" + this.actionName + " client registered:[" + registered + "]");
+            LOGGER.trace("Action:{} client registered:[{}]", this.actionName, registered);
         }
         if (registered) {
             final boolean publishersConnected = this.waitForServerPublishers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Action:" + this.actionName + " publishers connected:[" + publishersConnected + "]");
+                LOGGER.trace("Action:{} publishers connected:[{}]", this.actionName, publishersConnected);
             }
             if (publishersConnected) {
                 final boolean subscribersConnected = this.waitForClientSubscribers(Math.max(timeout - stopwatch.elapsed(timeUnit), 0), timeUnit);
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Action:" + this.actionName + " subscribers connected:[" + subscribersConnected + "]");
+                    LOGGER.trace("Action:{} subscribers connected:[{}]", this.actionName, subscribersConnected);
                 }
                 //if registered and publishers are  connected in time, the results depends on subscribersConnection
                 return subscribersConnected;
@@ -827,19 +829,11 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                 }
             } else {
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("[Connected to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
-                            + " [goalHasSubscribers:" + goalHasSubscribers
-                            + "] [cancelHasSubscribers:" + cancelHasSubscribers
-                            + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
-                            + "] [resultSubscriberFlag:" + resultSubscriberFlag
-                            + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
-                            + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
-
-                    );
+                    LOGGER.trace("[Connected to Server] tests:{}] GoalTopic:[{}/goal] CancelTopic[{}/cancel] timeout:[{}] \n [goalHasSubscribers:{}] [cancelHasSubscribers:{}] [feedbackSubscriberFlag:{}] [resultSubscriberFlag:{}] [statusSubscriberFlag:{}]] [statusSubscriberFlagReception:{}]", tests, this.actionName, actionName, timeout, goalHasSubscribers, cancelHasSubscribers, feedbackSubscriberFlag, resultSubscriberFlag, statusSubscriberFlag, this.statusSubscriberFlagReception);
                 }
             }
             if (!result && LOGGER.isDebugEnabled()) {
-                LOGGER.debug(" [Server Started:" + result + "] [tests:" + tests + "] Goal Topic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "]");
+                LOGGER.debug(" [Server Started:{}] [tests:{}] Goal Topic:[{}/goal] CancelTopic[{}/cancel] timeout:[{}]", result, tests, this.actionName, actionName, timeout);
             }
             return result;
         }
