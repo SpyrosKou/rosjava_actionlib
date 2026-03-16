@@ -19,7 +19,6 @@ package com.github.rosjava_actionlib;
 
 import actionlib_msgs.GoalID;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import org.apache.commons.lang3.StringUtils;
 import org.ros.internal.message.Message;
 import org.slf4j.Logger;
@@ -41,6 +40,8 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
     private final GoalID goalid;
     private final CountDownLatch countDownLatch;
     private final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient;
+    private volatile boolean cancelRequested = false;
+    private volatile ClientState terminalState = null;
     private T_FEEDBACK latestFeedback = null;
     private T_RESULT result = null;
     private final ActionClientFutureListener actionClientFutureListener = new ActionClientFutureListener();
@@ -70,6 +71,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
             }
             if (goalId.equals(ActionClientFuture.this.goalid.getId())) {
                 ActionClientFuture.this.result = t_result;
+                ActionClientFuture.this.terminalState = ClientState.DONE;
                 ActionClientFuture.this.disconnect();
                 ActionClientFuture.this.countDownLatch.countDown();
 
@@ -131,6 +133,9 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final ClientState getCurrentState() {
+        if (this.terminalState != null) {
+            return this.terminalState;
+        }
         return this.actionClient.getGoalState();
     }
 
@@ -140,6 +145,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final boolean cancel(final boolean mayInterruptIfRunning) {
+        this.cancelRequested = true;
         this.actionClient.sendCancel(this.goalid);
         return true;
     }
@@ -149,11 +155,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final boolean isCancelled() {
-        if (this.actionClient.getGoalState().isRunning()) {
-            return this.result == null;
-        } else {
-            return false;
-        }
+        return this.cancelRequested && this.result == null && this.terminalState == null;
     }
 
     /**
@@ -161,7 +163,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final boolean isDone() {
-        return !this.actionClient.getGoalState().isRunning();
+        return this.countDownLatch.getCount() == 0L;
     }
 
     /**
@@ -171,23 +173,16 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final T_RESULT get() throws InterruptedException, ExecutionException {
-        while (!this.isDone()) {
-            this.countDownLatch.await();
-        }
+        this.countDownLatch.await();
         return result;
     }
 
     @Override
     public final T_RESULT get(final long timeout, final TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
-
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-
-        while (!this.isDone() && stopwatch.elapsed(timeUnit) < timeout) {
-
-            this.countDownLatch.await(timeout - stopwatch.elapsed(timeUnit), timeUnit);
-
+        final boolean completed = this.countDownLatch.await(timeout, timeUnit);
+        if (!completed) {
+            throw new TimeoutException("Timed out waiting for result for goalId: " + this.goalid.getId());
         }
-        stopwatch.stop();
         return this.result;
     }
 
