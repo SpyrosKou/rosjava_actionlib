@@ -142,16 +142,21 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     }
 
     /**
-     * Publish result message on the /result topic.
+     * Publish a result message on the /result topic.
      *
      * @param result The action result message to send.
      */
     public final void sendResult(final T_ACTION_RESULT result) {
+        if (LOGGER.isTraceEnabled()) {
+            final GoalStatus goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
+            final String goalId = goalStatus != null && goalStatus.getGoalId() != null ? goalStatus.getGoalId().getId() : null;
+            LOGGER.trace("Publishing result on action:[{}] with goalId:[{}]", this.actionName, goalId);
+        }
         this.resultPublisher.publish(result);
         this.evictGoalForResult(result);
     }
 
-    private void evictGoal(final String goalId) {
+    private final void evictGoal(final String goalId) {
         if (goalId == null) {
             return;
         }
@@ -159,7 +164,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         this.goalIdToGoalStatusMap.remove(goalId);
     }
 
-    private void evictGoalForResult(final T_ACTION_RESULT result) {
+    private final void evictGoalForResult(final T_ACTION_RESULT result) {
         final GoalStatus goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
         if (goalStatus == null || goalStatus.getGoalId() == null) {
             return;
@@ -167,7 +172,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         this.evictGoal(goalStatus.getGoalId().getId());
     }
 
-    static boolean isTerminalStatus(final byte status) {
+    static final boolean isTerminalStatus(final byte status) {
         return status == GoalStatus.REJECTED
                 || status == GoalStatus.RECALLED
                 || status == GoalStatus.PREEMPTED
@@ -175,7 +180,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
                 || status == GoalStatus.ABORTED;
     }
 
-    private void markGoalForRemovalAfterStatusPublication(final String goalIdString) {
+    private final void markGoalForRemovalAfterStatusPublication(final String goalIdString) {
         if (goalIdString == null) {
             return;
         }
@@ -450,14 +455,14 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @see actionlib_msgs.GoalStatus
      */
     public final byte getGoalStatus(final String goalId) {
-        byte ret = 0;
+        final byte result;
 
         if (this.goalIdToGoalStatusMap.containsKey(goalId)) {
-            ret = this.goalIdToGoalStatusMap.get(goalId).stateMachine.getState();
+            result = this.goalIdToGoalStatusMap.get(goalId).stateMachine.getState();
         } else {
-            ret = -100;
+            result = -100;
         }
-        return ret;
+        return result;
     }
 
     /**
@@ -541,8 +546,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * Publishes the server's topics and subscribes to the client's topics.
      */
     private final void connect(final ConnectedNode node) {
-        publishServer(node);
-        subscribeToClient(node);
+        this.publishServer(node);
+        this.subscribeToClient(node);
     }
 
     /**
@@ -551,8 +556,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * The programmer need to ensure that this method is called when the program has finished using this {@link ActionServer}
      */
     public final void finish() {
-        unpublishServer();
-        unsubscribeToClient();
+        this.unpublishServer();
+        this.unsubscribeToClient();
 
     }
 
