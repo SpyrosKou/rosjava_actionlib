@@ -4,7 +4,7 @@ plugins {
     id 'idea'
 }
 group 'com.github.rosjava'
-version = '2026.03.16'
+version = '2026.03.18'
 description = 'A pure java version of actionlib'
 sourceCompatibility = JavaVersion.VERSION_21
 
@@ -37,7 +37,7 @@ tasks.withType(Javadoc) {
 dependencies {
 
     implementation group: 'org.ros.rosjava_bootstrap', name: 'message_generation', version: '0.3.8'
-    implementation 'org.ros.rosjava_core:rosjava:0.4.1.0'
+    implementation 'org.ros.rosjava_core:rosjava:0.4.1.1'
 
     api 'org.ros.rosjava_messages:actionlib_msgs:1.13.0'
     api 'org.ros.rosjava_messages:actionlib:1.13.2'
