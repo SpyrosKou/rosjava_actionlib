@@ -11,6 +11,29 @@ A sort summary of upstream is also included for reference.
 Unreleased
 ----------
 
+- No unreleased changes.
+
+2026.03.29
+----------
+
+- Moved early-cancel handling into `ActionServer` so unmatched exact goal-id
+  cancels are remembered, timestamp-based cancels are applied when matching
+  goals arrive later, and `cancel all` affects tracked goals without
+  incorrectly recalling future goals.
+- Expired unmatched early-cancel placeholders after the normal retention
+  window and kept duplicate tracked goal ids from mutating the original goal
+  metadata.
+- Added `ActionClient` convenience APIs for `cancelGoal`, `cancelAll`, and
+  `cancelBefore`.
+- Replaced sleep/polling in the deprecated
+  `waitForActionServerToStart()` path.
+
+
+2026.03.28
+----------
+
+- Aligned action goal lifecycle behavior more closely with ROS1 actionlib,
+  especially around terminal status visibility and client goal/result flow.
 - Preserved terminal action status visibility by publishing one terminal
   `/status` update before evicting finished goals from the server.
 - Corrected client-side cancel bookkeeping so cancelling an unrelated `GoalID`
@@ -20,12 +43,11 @@ Unreleased
 - Reduced future/listener lifetime leaks by letting abandoned
   `ActionClientFuture` instances unregister their listeners when they become
   unreachable.
-- Added regression tests for terminal status publication, wrong-goal cancel
-  handling, ignored pre-goal results, and abandoned future lifecycle cleanup.
+- Refreshed dependencies and moved the project to `rosjava 0.4.1.1`.
 
 
-2026-03
--------
+2026.03.16
+----------
 
 - Reduced server-side status lifecycle overhead by evicting completed goals
   instead of retaining them indefinitely.
@@ -36,7 +58,6 @@ Unreleased
 - Improved topic registration detection by consulting the ROS master as a
   fallback, making connection readiness checks less dependent on callbacks.
 - Simplified waiting logic and cancellation/state tracking on the client side.
-- Refreshed dependencies and moved the project to `rosjava 0.4.1.1`.
 
 
 2024-04
