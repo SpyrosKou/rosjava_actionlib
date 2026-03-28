@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.Runnables;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
+import org.ros.message.Time;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
 import org.ros.node.ConnectedNode;
@@ -376,6 +377,39 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.sendCancelInternal(goalIDd);
     }
 
+    /**
+     * Publish a cancel request for a single goal ID.
+     *
+     * @param goalId the ID of the goal to cancel
+     * @return {@code true} if the cancel request was published, {@code false} otherwise
+     */
+    public final boolean cancelGoal(final String goalId) {
+        Preconditions.checkArgument(StringUtils.isNotBlank(goalId));
+        return this.sendCancelInternal(this.newCancelGoalId(goalId, new Time()));
+    }
+
+    /**
+     * Publish a cancel-all request. This instructs the action server to cancel
+     * all currently tracked goals.
+     *
+     * @return {@code true} if the cancel request was published, {@code false} otherwise
+     */
+    public final boolean cancelAll() {
+        return this.sendCancelInternal(this.newCancelGoalId("", new Time()));
+    }
+
+    /**
+     * Publish a timestamp-based cancel request. This instructs the action server
+     * to cancel tracked goals whose timestamps are less than or equal to the supplied stamp.
+     *
+     * @param stamp the cutoff time for cancelling tracked goals
+     * @return {@code true} if the cancel request was published, {@code false} otherwise
+     */
+    public final boolean cancelBefore(final Time stamp) {
+        Objects.requireNonNull(stamp);
+        return this.sendCancelInternal(this.newCancelGoalId("", stamp));
+    }
+
     final boolean sendCancelInternal(final GoalID goalIDd) {
         Objects.requireNonNull(goalIDd);
         if (this.cancelPublisher == null) {
@@ -388,6 +422,13 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             this.goalManager.cancelGoal();
         }
         return true;
+    }
+
+    private final GoalID newCancelGoalId(final String id, final Time stamp) {
+        final GoalID goalId = this.connectedNode.getDefaultMessageFactory().newFromType(GoalID._TYPE);
+        goalId.setId(id);
+        goalId.setStamp(new Time(stamp));
+        return goalId;
     }
 
     /**
@@ -418,7 +459,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         }
     }
 
-    public T_ACTION_GOAL newGoalMessage() {
+    public final T_ACTION_GOAL newGoalMessage() {
         return goalPublisher.newMessage();
     }
 
@@ -846,7 +887,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
 
     @Override
-    public String toString() {
+    public final String toString() {
         return new StringJoiner(", ", ActionClient.class.getSimpleName() + "[", "]")
                 .add("goalManager=" + goalManager)
                 .add("actionGoalType='" + actionGoalType + "'")

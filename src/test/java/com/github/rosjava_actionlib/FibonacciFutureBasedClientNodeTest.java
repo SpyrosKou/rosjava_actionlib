@@ -17,7 +17,6 @@
 
 package com.github.rosjava_actionlib;
 
-import actionlib_msgs.GoalID;
 import actionlib_msgs.GoalStatus;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
@@ -62,7 +61,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
      * Also demonstrates status of Client by printing client status when it changes
      */
     @Test
-    public void testMultipleWaitForConnections() {
+    public final void testMultipleWaitForConnections() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final int reps = 1000;
         for (int i = 0; i < reps; i++) {
@@ -80,7 +79,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
      * Also demonstrates status of Client by printing client status when it changes
      */
     @Test
-    public void testFutureBasedClient() {
+    public final void testFutureBasedClient() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         try {
 
@@ -165,7 +164,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     }
 
     @Test
-    public void testResultListener() {
+    public final void testResultListener() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final CountDownLatch resultReceived = new CountDownLatch(1);
 
@@ -196,13 +195,60 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
                     this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
 
-            final GoalID unrelatedGoalId = this.futureBasedClientNode.getActionClient().newGoalMessage().getGoalId();
-            unrelatedGoalId.setId("unrelated-goal-id");
-            final boolean cancelSent = this.futureBasedClientNode.getActionClient().sendCancelInternal(unrelatedGoalId);
+            final boolean cancelSent = this.futureBasedClientNode.getActionClient().cancelGoal("unrelated-goal-id");
 
             Assert.assertTrue("Cancelling a different GoalID should still publish the cancel request", cancelSent);
             Assert.assertNotEquals("Cancelling a different GoalID should not change the current goal state",
                     ClientState.WAITING_FOR_CANCEL_ACK, resultFuture.getCurrentState());
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+    }
+
+    @Test
+    public final void testCancelGoalCancelsTrackedGoalById() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final CountDownLatch goalTracked = new CountDownLatch(1);
+        final AtomicReference<String> trackedGoalId = new AtomicReference<>();
+
+        this.futureBasedClientNode.getActionClient().addActionClientStatusListener(statusArray -> statusArray.getStatusList().stream()
+                .filter(goalStatus -> goalStatus != null)
+                .filter(goalStatus -> goalStatus.getGoalId() != null)
+                .filter(goalStatus -> goalStatus.getStatus() == GoalStatus.PENDING
+                        || goalStatus.getStatus() == GoalStatus.ACTIVE
+                        || goalStatus.getStatus() == GoalStatus.PREEMPTING
+                        || goalStatus.getStatus() == GoalStatus.RECALLING)
+                .map(goalStatus -> goalStatus.getGoalId().getId())
+                .filter(id -> id != null && !id.isBlank())
+                .findFirst()
+                .ifPresent(id -> {
+                    if (trackedGoalId.compareAndSet(null, id)) {
+                        goalTracked.countDown();
+                    }
+                }));
+
+        try {
+            final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
+            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> cancelledGoalFuture =
+                    this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
+            final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertTrue("The goal was never observed as tracked before cancelGoal", trackedGoalObserved);
+
+            final String goalId = trackedGoalId.get();
+            Assert.assertNotNull("Tracked goal ID should be captured before cancelGoal", goalId);
+            final boolean cancelSent = this.futureBasedClientNode.getActionClient().cancelGoal(goalId);
+            Assert.assertTrue("Cancel-goal request was not published", cancelSent);
+
+            final FibonacciActionResult cancelledGoalResult =
+                    cancelledGoalFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertNotNull("Cancelled result should not be null", cancelledGoalResult);
+            Assert.assertEquals("Cancel-goal should preempt the tracked goal",
+                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus());
+            Assert.assertFalse("Cancelled result should be incomplete",
+                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()));
+            Assert.assertEquals("Cancelled future should be terminal", ClientState.DONE, cancelledGoalFuture.getCurrentState());
         } catch (final Exception exception) {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
         }
@@ -232,10 +278,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
             final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
             Assert.assertTrue("The goal was never observed as tracked before cancel-all", trackedGoalObserved);
 
-            final GoalID cancelAllGoalId = this.futureBasedClientNode.getActionClient().newGoalMessage().getGoalId();
-            cancelAllGoalId.setId("");
-            cancelAllGoalId.setStamp(new Time());
-            final boolean cancelAllSent = this.futureBasedClientNode.getActionClient().sendCancelInternal(cancelAllGoalId);
+            final boolean cancelAllSent = this.futureBasedClientNode.getActionClient().cancelAll();
             Assert.assertTrue("Cancel-all request was not published", cancelAllSent);
 
             final FibonacciActionResult cancelledGoalResult =
@@ -260,7 +303,63 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     }
 
     @Test
-    public void testCancel() {
+    public final void testCancelBeforeCancelsOlderTrackedGoalButNotFutureGoal() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final CountDownLatch goalTracked = new CountDownLatch(1);
+        final AtomicReference<Time> trackedGoalStamp = new AtomicReference<>();
+
+        this.futureBasedClientNode.getActionClient().addActionClientStatusListener(statusArray -> statusArray.getStatusList().stream()
+                .filter(goalStatus -> goalStatus != null)
+                .filter(goalStatus -> goalStatus.getGoalId() != null)
+                .filter(goalStatus -> goalStatus.getGoalId().getStamp() != null)
+                .filter(goalStatus -> goalStatus.getStatus() == GoalStatus.PENDING
+                        || goalStatus.getStatus() == GoalStatus.ACTIVE
+                        || goalStatus.getStatus() == GoalStatus.PREEMPTING
+                        || goalStatus.getStatus() == GoalStatus.RECALLING)
+                .findFirst()
+                .ifPresent(goalStatus -> {
+                    if (trackedGoalStamp.compareAndSet(null, new Time(goalStatus.getGoalId().getStamp()))) {
+                        goalTracked.countDown();
+                    }
+                }));
+
+        try {
+            final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
+            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> cancelledGoalFuture =
+                    this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
+            final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertTrue("The goal was never observed as tracked before cancel-before", trackedGoalObserved);
+
+            final Time cancelStamp = trackedGoalStamp.get();
+            Assert.assertNotNull("Tracked goal stamp should be captured before cancel-before", cancelStamp);
+            final boolean cancelBeforeSent = this.futureBasedClientNode.getActionClient().cancelBefore(cancelStamp);
+            Assert.assertTrue("Cancel-before request was not published", cancelBeforeSent);
+
+            final FibonacciActionResult cancelledGoalResult =
+                    cancelledGoalFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertNotNull("Cancelled result should not be null", cancelledGoalResult);
+            Assert.assertEquals("Cancel-before should preempt the tracked goal",
+                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus());
+            Assert.assertFalse("Cancelled result should be incomplete",
+                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()));
+            Assert.assertEquals("Cancelled future should be terminal", ClientState.DONE, cancelledGoalFuture.getCurrentState());
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> futureGoal =
+                    this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
+            final FibonacciActionResult futureGoalResult =
+                    futureGoal.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertNotNull("Future result should not be null", futureGoalResult);
+            Assert.assertTrue("Future goal should still succeed after cancel-before",
+                    Arrays.equals(futureGoalResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+    }
+
+    @Test
+    public final void testCancel() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final CountDownLatch resultReceived = new CountDownLatch(1);
 
@@ -343,7 +442,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         this.fibonacciActionLibServer = null;
     }
 
-    private static Object getDeclaredFieldValue(final Class<?> ownerClass, final Object target, final String fieldName) {
+    private static final Object getDeclaredFieldValue(final Class<?> ownerClass, final Object target, final String fieldName) {
         try {
             final Field field = ownerClass.getDeclaredField(fieldName);
             field.setAccessible(true);
