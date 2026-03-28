@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 Spyros Koukas
+ * Copyright 2023 Spyros Koukas
  *
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,8 @@
 
 package com.github.rosjava_actionlib;
 
+import actionlib_msgs.GoalID;
+import actionlib_msgs.GoalStatus;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
@@ -26,18 +28,24 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
+import org.ros.internal.message.Message;
+import org.ros.node.ConnectedNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Focus on {@link FutureBasedClientNode} status changes
  * Demonstrate future usage
+ * @author Spyros Koukas
  */
 public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
@@ -120,6 +128,42 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     }
 
     @Test
+    public final void testTerminalStatusIsPublishedAfterResult() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final CountDownLatch terminalStatusReceived = new CountDownLatch(1);
+        final AtomicReference<Byte> terminalStatus = new AtomicReference<>();
+
+        this.futureBasedClientNode.getActionClient().addActionClientStatusListener(statusArray -> statusArray.getStatusList().stream()
+                .filter(goalStatus -> goalStatus != null)
+                .map(goalStatus -> goalStatus.getStatus())
+                .filter(ActionServer::isTerminalStatus)
+                .findFirst()
+                .ifPresent(status -> {
+                    terminalStatus.compareAndSet(null, status);
+                    terminalStatusReceived.countDown();
+                }));
+
+        try {
+            final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
+            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
+                    this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
+
+            final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertNotNull("Null Result", result);
+            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+
+            final boolean statusReceived =
+                    terminalStatusReceived.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertTrue("Expected a terminal /status publication after the result", statusReceived);
+            Assert.assertEquals("Expected SUCCEEDED terminal status", Byte.valueOf(GoalStatus.SUCCEEDED), terminalStatus.get());
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+    }
+
+    @Test
     public void testResultListener() {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final CountDownLatch resultReceived = new CountDownLatch(1);
@@ -141,6 +185,27 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
     }
 
+    @Test
+    public final void testCancelForDifferentGoalDoesNotChangeCurrentGoalState() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        try {
+            final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
+            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
+                    this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
+
+            final GoalID unrelatedGoalId = this.futureBasedClientNode.getActionClient().newGoalMessage().getGoalId();
+            unrelatedGoalId.setId("unrelated-goal-id");
+            final boolean cancelSent = this.futureBasedClientNode.getActionClient().sendCancelInternal(unrelatedGoalId);
+
+            Assert.assertTrue("Cancelling a different GoalID should still publish the cancel request", cancelSent);
+            Assert.assertNotEquals("Cancelling a different GoalID should not change the current goal state",
+                    ClientState.WAITING_FOR_CANCEL_ACK, resultFuture.getCurrentState());
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+    }
 
     @Test
     public void testCancel() {
@@ -169,6 +234,23 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
         }
 
+    }
+
+    @Test
+    public final void testResultForDifferentGoalIsIgnoredBeforeAnyGoalIsSent() {
+        try {
+            final ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionClient =
+                    this.futureBasedClientNode.getActionClient();
+            final ConnectedNode connectedNode = (ConnectedNode) getDeclaredFieldValue(ActionClient.class, actionClient, "connectedNode");
+            final FibonacciActionResult resultMessage = connectedNode.getDefaultMessageFactory().newFromType(FibonacciActionResult._TYPE);
+            resultMessage.getStatus().getGoalId().setId("unrelated-goal-id");
+
+            final Method gotResult = ActionClient.class.getDeclaredMethod("gotResult", Message.class);
+            gotResult.setAccessible(true);
+            gotResult.invoke(actionClient, resultMessage);
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
     }
 
 
@@ -207,6 +289,16 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         }
         this.futureBasedClientNode = null;
         this.fibonacciActionLibServer = null;
+    }
+
+    private static Object getDeclaredFieldValue(final Class<?> ownerClass, final Object target, final String fieldName) {
+        try {
+            final Field field = ownerClass.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (final Exception exception) {
+            throw new AssertionError(exception);
+        }
     }
 
 }

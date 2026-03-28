@@ -25,6 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
+import java.lang.ref.Cleaner;
+import java.lang.ref.WeakReference;
 import java.util.concurrent.*;
 
 /**
@@ -37,53 +39,76 @@ import java.util.concurrent.*;
 final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message>
         implements ActionFuture<T_GOAL, T_FEEDBACK, T_RESULT> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final Cleaner CLEANER = Cleaner.create();
     private final GoalID goalid;
     private final CountDownLatch countDownLatch;
     private final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient;
+    private final ActionClientFutureListener<T_GOAL, T_FEEDBACK, T_RESULT> actionClientFutureListener;
+    private final Cleaner.Cleanable cleanable;
     private volatile boolean cancelRequested = false;
     private volatile ClientState terminalState = null;
     private T_FEEDBACK latestFeedback = null;
     private T_RESULT result = null;
-    private final ActionClientFutureListener actionClientFutureListener = new ActionClientFutureListener();
 
-    private final class ActionClientFutureListener implements ActionClientResultListener<T_RESULT>, ActionClientFeedbackListener<T_FEEDBACK> {
+    private static final class ListenerCleanup<T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message> implements Runnable {
+        private final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient;
+        private final ActionClientFutureListener<T_GOAL, T_FEEDBACK, T_RESULT> listener;
 
-        public final void feedbackReceived(final T_FEEDBACK t_feedback) {
-            final ActionFeedback<T_FEEDBACK> actionFeedback = new ActionFeedback(t_feedback);
-            if (ActionClientFuture.this.LOGGER.isTraceEnabled()) {
-                ActionClientFuture.this.LOGGER.trace("Received feedback for goalId: " + actionFeedback.getGoalStatusMessage().getGoalId().getId());
-            }
-            if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(ActionClientFuture.this.goalid.getId())) {
-                ActionClientFuture.this.latestFeedback = t_feedback;
-            }
-
+        private ListenerCleanup(final ActionClient<T_GOAL, T_FEEDBACK, T_RESULT> actionClient,
+                                final ActionClientFutureListener<T_GOAL, T_FEEDBACK, T_RESULT> listener) {
+            this.actionClient = actionClient;
+            this.listener = listener;
         }
 
-        /**
-         * @param t_result
-         */
+        @Override
+        public final void run() {
+            this.actionClient.removeActionClientFeedbackListener(this.listener);
+            this.actionClient.removeActionClientResultListener(this.listener);
+        }
+    }
+
+    private static final class ActionClientFutureListener<T_GOAL extends Message, T_FEEDBACK extends Message, T_RESULT extends Message>
+            implements ActionClientResultListener<T_RESULT>, ActionClientFeedbackListener<T_FEEDBACK> {
+        private final WeakReference<ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT>> ownerReference;
+
+        private ActionClientFutureListener(final ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT> owner) {
+            this.ownerReference = new WeakReference<>(owner);
+        }
+
+        @Override
+        public final void feedbackReceived(final T_FEEDBACK t_feedback) {
+            final ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT> owner = this.ownerReference.get();
+            if (owner == null) {
+                return;
+            }
+            final ActionFeedback<T_FEEDBACK> actionFeedback = new ActionFeedback<>(t_feedback);
+            if (ActionClientFuture.LOGGER.isTraceEnabled()) {
+                ActionClientFuture.LOGGER.trace("Received feedback for goalId: {}", actionFeedback.getGoalStatusMessage().getGoalId().getId());
+            }
+            if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(owner.goalid.getId())) {
+                owner.latestFeedback = t_feedback;
+            }
+        }
+
         @Override
         public final void resultReceived(final T_RESULT t_result) {
-            final ActionResult resultWrapper = new ActionResult(t_result);
-            final String goalId=resultWrapper.getGoalStatusMessage().getGoalId().getId();
-            if (ActionClientFuture.this.LOGGER.isDebugEnabled()) {
-                ActionClientFuture.this.LOGGER.debug("Received result for goalId: " + goalId);
+            final ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT> owner = this.ownerReference.get();
+            if (owner == null) {
+                return;
             }
-            if (goalId.equals(ActionClientFuture.this.goalid.getId())) {
-                ActionClientFuture.this.result = t_result;
-                ActionClientFuture.this.terminalState = ClientState.DONE;
-                ActionClientFuture.this.disconnect();
-                ActionClientFuture.this.countDownLatch.countDown();
-
+            final ActionResult<T_RESULT> resultWrapper = new ActionResult<>(t_result);
+            final String goalId = resultWrapper.getGoalStatusMessage().getGoalId().getId();
+            if (ActionClientFuture.LOGGER.isDebugEnabled()) {
+                ActionClientFuture.LOGGER.debug("Received result for goalId: {}", goalId);
+            }
+            if (goalId.equals(owner.goalid.getId())) {
+                owner.completeWithResult(t_result);
             } else {
-                if (LOGGER.isErrorEnabled()) {
-                    LOGGER.error("Result with Unknown id:" + goalId + ", waiting for goalId:" + ActionClientFuture.this.goalid.getId());
+                if (ActionClientFuture.LOGGER.isErrorEnabled()) {
+                    ActionClientFuture.LOGGER.error("Result with Unknown id:{}, waiting for goalId:{}", goalId, owner.goalid.getId());
                 }
             }
-
-
         }
-
     }
 
     /**
@@ -99,7 +124,7 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
         final GoalID goalId = actionClient.getGoalId(goal);
         final ActionClientFuture<T_GOAL, T_FEEDBACK, T_RESULT> actionClientFuture = new ActionClientFuture<>(actionClient, goalId);
         if (LOGGER.isWarnEnabled() && actionClient.isActive()) {
-            LOGGER.warn("current goal STATE:" + actionClient.getGoalState() + "=" + actionClient.getGoalState().getValue());
+            LOGGER.warn("current goal STATE:{}={}", actionClient.getGoalState(), actionClient.getGoalState().getValue());
         }
         actionClient.addActionClientFeedbackListener((ActionClientFeedbackListener<T_FEEDBACK>) actionClientFuture.actionClientFutureListener);
         actionClient.addActionClientResultListener((ActionClientResultListener<T_RESULT>) actionClientFuture.actionClientFutureListener);
@@ -117,6 +142,8 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
         this.actionClient = actionClient;
         this.goalid = goalID;
         this.countDownLatch = new CountDownLatch(1);
+        this.actionClientFutureListener = new ActionClientFutureListener<>(this);
+        this.cleanable = CLEANER.register(this, new ListenerCleanup<>(actionClient, this.actionClientFutureListener));
     }
 
 
@@ -145,9 +172,8 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      */
     @Override
     public final boolean cancel(final boolean mayInterruptIfRunning) {
-        this.cancelRequested = true;
-        this.actionClient.sendCancel(this.goalid);
-        return true;
+        this.cancelRequested = this.actionClient.sendCancelInternal(this.goalid);
+        return this.cancelRequested;
     }
 
     /**
@@ -191,8 +217,14 @@ final class ActionClientFuture<T_GOAL extends Message, T_FEEDBACK extends Messag
      *
      */
     private final void disconnect() {
-        this.actionClient.removeActionClientFeedbackListener(this.actionClientFutureListener);
-        this.actionClient.removeActionClientResultListener(this.actionClientFutureListener);
+        this.cleanable.clean();
+    }
+
+    private void completeWithResult(final T_RESULT t_result) {
+        this.result = t_result;
+        this.terminalState = ClientState.DONE;
+        this.disconnect();
+        this.countDownLatch.countDown();
     }
 
     /**

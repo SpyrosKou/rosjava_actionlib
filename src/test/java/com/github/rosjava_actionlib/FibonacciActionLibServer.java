@@ -1,7 +1,6 @@
-package com.github.rosjava_actionlib;
-
 /**
  * Copyright 2015 Ekumen www.ekumenlabs.com
+ * Copyright 2023 Spyros Koukas
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +14,7 @@ package com.github.rosjava_actionlib;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.github.rosjava_actionlib;
 
 
 import actionlib_msgs.GoalID;
@@ -29,7 +29,6 @@ import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import std_msgs.Bool;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
@@ -37,7 +36,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Ernesto Corbellini ecorbellini@ekumenlabs.com
@@ -48,11 +46,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 final class FibonacciActionLibServer extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final long DEFAULT_TERMINAL_STATUS_RETENTION_MILLIS = 5000;
     private ActionServer<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionServer = null;
     private volatile FibonacciActionGoal currentGoal = null;
     private final FibonacciCalculator fibonacciCalculator = new FibonacciCalculator();
     private final CountDownLatch startCountDownLatch = new CountDownLatch(1);
     private final Set<String> cancelledGoalIds = new ConcurrentSkipListSet<>();
+    private final boolean setExplicitResultStatus;
+    private final long terminalStatusRetention;
+    private final TimeUnit terminalStatusRetentionTimeUnit;
+
+    FibonacciActionLibServer() {
+        this(true);
+    }
+
+    FibonacciActionLibServer(final boolean setExplicitResultStatus) {
+        this(setExplicitResultStatus, DEFAULT_TERMINAL_STATUS_RETENTION_MILLIS, TimeUnit.MILLISECONDS);
+    }
+
+    FibonacciActionLibServer(final boolean setExplicitResultStatus, final long terminalStatusRetention, final TimeUnit terminalStatusRetentionTimeUnit) {
+        this.setExplicitResultStatus = setExplicitResultStatus;
+        this.terminalStatusRetention = terminalStatusRetention;
+        this.terminalStatusRetentionTimeUnit = terminalStatusRetentionTimeUnit;
+    }
 
     @Override
     public final GraphName getDefaultNodeName() {
@@ -81,7 +97,8 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     public final void onStart(final ConnectedNode node) {
 
         this.actionServer = new ActionServer<>(node, this, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE,
-                FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+                FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE,
+                this.terminalStatusRetention, this.terminalStatusRetentionTimeUnit);
 
         this.startCountDownLatch.countDown();
     }
@@ -133,12 +150,14 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
             if (this.shouldCancelGoal(goal)) {
                 this.cancelledGoalIds.remove(goal.getGoalId().getId());
             } else {
-                result.getStatus().setStatus(GoalStatus.SUCCEEDED);
+                if (this.setExplicitResultStatus) {
+                    result.getStatus().setStatus(GoalStatus.SUCCEEDED);
+                }
                 this.actionServer.setSucceed(goal.getGoalId().getId());
             }
             LOGGER.trace("About to publish result for goalId:[" + result.getStatus().getGoalId().getId() + "] status:[" + result.getStatus().getStatus() + "]");
             this.actionServer.sendResult(result);
-            this.currentGoal=null;
+            this.currentGoal = null;
             return Optional.empty();
         } else {
             LOGGER.trace("We already have a goal! New goal reject.");
