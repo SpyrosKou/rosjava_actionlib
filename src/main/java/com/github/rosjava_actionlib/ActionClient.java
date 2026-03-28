@@ -75,7 +75,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private Subscriber<T_ACTION_FEEDBACK> serverFeedbackSubscriber = null;
     private Subscriber<GoalStatusArray> serverStatusSubscriber = null;
     private String actionName;
-    private final long ON_CONNECTION_TIMEOUT_MILLIS = 50;
 
 
     private final List<ActionClientResultListener<T_ACTION_RESULT>> callbackResultTargets = new CopyOnWriteArrayList<>();
@@ -780,78 +779,23 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     public final boolean waitForActionServerToStart(final long timeout, final TimeUnit timeUnit) {
         if (this.hasOnConnectionBeenCalled.get()) {
             return true;
-        } else {
-            final Stopwatch stopwatch = Stopwatch.createStarted();
-
-            boolean result = false;
-            long tests = 0;
-            boolean goalHasSubscribers = false;
-            boolean cancelHasSubscribers = false;
-            boolean feedbackSubscriberFlag = false;
-            boolean resultSubscriberFlag = false;
-            boolean statusSubscriberFlag = false;
-            while (!result && (stopwatch.elapsed(timeUnit) < timeout)) {
-                tests++;
-                final MasterStateClient masterStateClient = new MasterStateClient(this.connectedNode, this.connectedNode.getMasterUri());
-                if (!goalHasSubscribers) {
-                    goalHasSubscribers = this.goalPublisher.hasSubscribers();
-                }
-                if (!cancelHasSubscribers) {
-                    cancelHasSubscribers = this.cancelPublisher.hasSubscribers();
-                }
-                if (!feedbackSubscriberFlag) {
-                    feedbackSubscriberFlag = this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString(), masterStateClient);
-                }
-                if (!resultSubscriberFlag) {
-                    resultSubscriberFlag = this.isTopicPublished(this.serverResultSubscriber.getTopicName().toString(), masterStateClient);
-                }
-                if (!statusSubscriberFlag) {
-                    statusSubscriberFlag = this.isTopicPublished(this.serverStatusSubscriber.getTopicName().toString(), masterStateClient);
-                }
-
-                result = goalHasSubscribers
-                        && cancelHasSubscribers
-                        && (this.statusSubscriberFlagReception || statusSubscriberFlag)
-                        && resultSubscriberFlag
-                        && feedbackSubscriberFlag;
-
-                if (result) {
-                    break;
-                } else {
-                    try {
-
-                        Thread.sleep(ON_CONNECTION_TIMEOUT_MILLIS);
-
-                    } catch (final Exception e) {
-                        if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug(ExceptionUtils.getStackTrace(e));
-                        }
+        }
+        try {
+            if (timeout <= 0L) {
+                while (true) {
+                    // Preserve the legacy "wait forever" contract without a polling sleep loop.
+                    if (this.waitForServerConnection(1, TimeUnit.DAYS)) {
+                        return true;
                     }
                 }
-
             }
-
-            if (!result) {
-                if (LOGGER.isErrorEnabled()) {
-                    LOGGER.error("[Could not connect to Server] tests:" + tests + "] GoalTopic:[" + this.actionName + "/goal] CancelTopic[" + actionName + "/cancel] timeout:[" + timeout + "] \n"
-                            + " [goalHasSubscribers:" + goalHasSubscribers
-                            + "] [cancelHasSubscribers:" + cancelHasSubscribers
-                            + "] [feedbackSubscriberFlag:" + feedbackSubscriberFlag
-                            + "] [resultSubscriberFlag:" + resultSubscriberFlag
-                            + "] [statusSubscriberFlag:" + statusSubscriberFlag + "]"
-                            + "] [statusSubscriberFlagReception:" + this.statusSubscriberFlagReception + "]"
-
-                    );
-                }
-            } else {
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("[Connected to Server] tests:{}] GoalTopic:[{}/goal] CancelTopic[{}/cancel] timeout:[{}] \n [goalHasSubscribers:{}] [cancelHasSubscribers:{}] [feedbackSubscriberFlag:{}] [resultSubscriberFlag:{}] [statusSubscriberFlag:{}]] [statusSubscriberFlagReception:{}]", tests, this.actionName, actionName, timeout, goalHasSubscribers, cancelHasSubscribers, feedbackSubscriberFlag, resultSubscriberFlag, statusSubscriberFlag, this.statusSubscriberFlagReception);
-                }
+            return this.waitForServerConnection(timeout, timeUnit);
+        } catch (final InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Interrupted while waiting for action server:[{}] connection", this.actionName, interruptedException);
             }
-            if (!result && LOGGER.isDebugEnabled()) {
-                LOGGER.debug(" [Server Started:{}] [tests:{}] Goal Topic:[{}/goal] CancelTopic[{}/cancel] timeout:[{}]", result, tests, this.actionName, actionName, timeout);
-            }
-            return result;
+            return false;
         }
     }
 
