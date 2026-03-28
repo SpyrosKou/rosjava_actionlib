@@ -32,8 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -51,7 +49,6 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
     private volatile FibonacciActionGoal currentGoal = null;
     private final FibonacciCalculator fibonacciCalculator = new FibonacciCalculator();
     private final CountDownLatch startCountDownLatch = new CountDownLatch(1);
-    private final Set<String> cancelledGoalIds = new ConcurrentSkipListSet<>();
     private final boolean setExplicitResultStatus;
     private final long terminalStatusRetention;
     private final TimeUnit terminalStatusRetentionTimeUnit;
@@ -109,8 +106,12 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
 
     }
 
-    private final boolean shouldCancelGoal(final FibonacciActionGoal goal) {
-        return this.cancelledGoalIds.contains(goal.getGoalId().getId());
+    private final boolean shouldCancelGoal(final String goalId) {
+        return ActionServer.isCancelRequestedStatus(this.actionServer.getGoalStatus(goalId));
+    }
+
+    private final boolean isCancelledGoal(final String goalId) {
+        return ActionServer.isCancelledStatus(this.actionServer.getGoalStatus(goalId));
     }
 
     private static final void copyGoal(final GoalID from, final GoalID to) {
@@ -120,7 +121,6 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
 
     @Override
     public final void cancelReceived(final GoalID id) {
-        this.cancelledGoalIds.add(id.getId());
         LOGGER.trace("Cancel received for goal:" + id);
     }
 
@@ -129,8 +129,9 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
         // If we don't have a goal, accept it. Otherwise, reject it.
         if (this.currentGoal == null) {
             this.currentGoal = goal;
-            this.actionServer.setAccepted(this.currentGoal.getGoalId().getId());
-            LOGGER.trace("Goal accepted with goalId:[" + goal.getGoalId().getId() + "]");
+            final String goalId = this.currentGoal.getGoalId().getId();
+            this.actionServer.setAccepted(goalId);
+            LOGGER.trace("Goal accepted with goalId:[" + goalId + "]");
             final FibonacciActionFeedback feedback = this.actionServer.newFeedbackMessage();
             feedback.getStatus().setStatus(GoalStatus.ACTIVE);
             this.actionServer.sendFeedback(feedback);
@@ -143,17 +144,17 @@ final class FibonacciActionLibServer extends AbstractNodeMain implements ActionS
                 LOGGER.trace("Renaming Thread" + Thread.currentThread().getName());
                 Thread.currentThread().setName("GoalReceived " + Thread.currentThread().getName());
             }
-            final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goal), Runnables::doNothing);
+            final int[] output = fibonacciCalculator.fibonacciSequence(input, () -> this.shouldCancelGoal(goalId), Runnables::doNothing);
             result.getResult().setSequence(output);
 
-
-            if (this.shouldCancelGoal(goal)) {
-                this.cancelledGoalIds.remove(goal.getGoalId().getId());
-            } else {
+            if (this.shouldCancelGoal(goalId)) {
+                this.actionServer.setCancel(goalId);
+            }
+            if (!this.isCancelledGoal(goalId)) {
                 if (this.setExplicitResultStatus) {
                     result.getStatus().setStatus(GoalStatus.SUCCEEDED);
                 }
-                this.actionServer.setSucceed(goal.getGoalId().getId());
+                this.actionServer.setSucceed(goalId);
             }
             LOGGER.trace("About to publish result for goalId:[" + result.getStatus().getGoalId().getId() + "] status:[" + result.getStatus().getStatus() + "]");
             this.actionServer.sendResult(result);

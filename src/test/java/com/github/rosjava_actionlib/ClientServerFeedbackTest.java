@@ -15,6 +15,7 @@
  */
 package com.github.rosjava_actionlib;
 
+import actionlib_msgs.GoalStatus;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
@@ -31,7 +32,7 @@ import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class ClientServerFeedbackTest {
+public final class ClientServerFeedbackTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final TestProperties testProperties = TestProperties.getFromDefaultFile();
@@ -46,7 +47,7 @@ public class ClientServerFeedbackTest {
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
     @Before
-    public void before() {
+    public final void before() {
         try {
             final boolean coreStartedOk ;
             if (!USE_EXTERNAL_ROS_MASTER) {
@@ -77,7 +78,7 @@ public class ClientServerFeedbackTest {
 
 
     @Test
-    public void testNormal() {
+    public final void testNormal() {
 
 
         try {
@@ -103,7 +104,7 @@ public class ClientServerFeedbackTest {
     }
 
     @Test
-    public void testCountDownLatch() {
+    public final void testCountDownLatch() {
 
 
         try {
@@ -133,15 +134,17 @@ public class ClientServerFeedbackTest {
     }
 
     @Test
-    public void testCancel() {
+    public final void testCancelPublishedBeforeGoalDoesNotSucceed() {
         try {
 
             LOGGER.trace("Starting Tasks");
 
-            final var resulFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciCanceledFuture(TestInputs.HUGE_INPUT);
-            final FibonacciActionResult result = resulFutureCancelled.get(5, TimeUnit.SECONDS);
+            final var resultFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciEarlyCanceledFuture(TestInputs.HUGE_INPUT);
+            final FibonacciActionResult result = resultFutureCancelled.get(5, TimeUnit.SECONDS);
             LOGGER.trace("Finished");
             Assert.assertNotNull("Result should not be null", result);
+            Assert.assertTrue("Result should be cancelled even if goal and cancel arrive on different topics in either order",
+                    result.getStatus().getStatus() == GoalStatus.RECALLED || result.getStatus().getStatus() == GoalStatus.PREEMPTED);
             Assert.assertFalse("Result should be incomplete", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, result.getResult().getSequence()));
 
         } catch (final Exception e) {
@@ -151,7 +154,7 @@ public class ClientServerFeedbackTest {
     }
 
     @After
-    public void after() {
+    public final void after() {
         try {
             rosExecutor.stopNodeMain(this.asyncGoalRunnerActionLibServer);
         } catch (final Exception e2) {
