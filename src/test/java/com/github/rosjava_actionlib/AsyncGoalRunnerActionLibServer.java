@@ -31,18 +31,15 @@ import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
  * @author Spyros Koukas
- * @deprecated does not work properly
  * A server that tries to calculate fibonnacis async
  */
-@Deprecated
-class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
+final class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionServerListener<FibonacciActionGoal> {
 
     private final FibonacciCalculator fibonacciCalculator = new FibonacciCalculator();
 
@@ -62,12 +59,12 @@ class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionS
 
 
     @Override
-    public GraphName getDefaultNodeName() {
+    public final GraphName getDefaultNodeName() {
         return GraphName.of(FibonacciGraphNames.SERVER_NODE_GRAPH_NAME);
     }
 
     @Override
-    public void onStart(final ConnectedNode node) {
+    public final void onStart(final ConnectedNode node) {
 
 
         this.actionServer = new ActionServer<>(node, this, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
@@ -95,23 +92,16 @@ class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionS
      *
      */
     @Override
-    public void cancelReceived(final GoalID goalId) {
+    public final void cancelReceived(final GoalID goalId) {
         LOGGER.trace("Cancel received for ID:" + goalId);
+    }
 
-        if (goalId != null && goalId.getId() != null) {
-            final String id = goalId.getId();
-            final CompletableFuture<FibonacciActionResult> preexistingGoal = this.goals.get(id);
-            // If we don't have a goal, accept it. Otherwise, reject it.
-            if (preexistingGoal == null) {
-                LOGGER.trace("Goal not found");
+    private final boolean shouldCancelGoal(final String goalId) {
+        return ActionServer.isCancelRequestedStatus(this.actionServer.getGoalStatus(goalId));
+    }
 
-            } else {
-                preexistingGoal.cancel(true);
-                 this.goals.remove(id);
-            }
-            this.actionServer.setCancelRequested(id);
-        }
-
+    private final boolean isCancelledGoal(final String goalId) {
+        return ActionServer.isCancelledStatus(this.actionServer.getGoalStatus(goalId));
     }
 
     /**
@@ -139,22 +129,18 @@ class AsyncGoalRunnerActionLibServer extends AbstractNodeMain implements ActionS
 
                     final FibonacciActionResult result = actionServer.newResultMessage();
                     result.getStatus().setGoalId(goalIn.getGoalId());
-                    final Set<Byte> cancelingStatuses = Set.of(GoalStatus.PREEMPTING, GoalStatus.RECALLING);
-                    final Supplier<Boolean> shouldCancel = () -> cancelingStatuses.contains(this.actionServer.getGoalStatus(id));
-                    final Runnable onCancel = () -> {
-                        this.actionServer.setCancel(id);
-                        this.actionServer.sendStatusTick();
-                        LOGGER.info("Cancelled goal:" + id);
-                    };
+                    final Supplier<Boolean> shouldCancel = () -> this.shouldCancelGoal(id);
                     result.getResult().setSequence(fibonacciCalculator.fibonacciSequence(order, shouldCancel, Runnables::doNothing, feedbackProvider, order / 5));
                     LOGGER.trace("Sending result...");
 
-                    if (!cancelingStatuses.contains(this.actionServer.getGoalStatus(id))) {
+                    if (this.shouldCancelGoal(id)) {
+                        this.actionServer.setCancel(id);
+                    }
+                    if (!this.isCancelledGoal(id)) {
                         this.actionServer.setSucceed(id);
                         result.getStatus().setStatus(GoalStatus.SUCCEEDED);
                         LOGGER.trace("Succeeded goal:" + id);
                     } else {
-                        this.actionServer.setCancel(id);
                         result.getStatus().setStatus(GoalStatus.PREEMPTED);
                         LOGGER.trace("Canceled goal:" + id);
                     }

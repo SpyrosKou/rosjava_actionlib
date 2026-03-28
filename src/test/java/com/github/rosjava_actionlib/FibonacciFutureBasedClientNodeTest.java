@@ -29,6 +29,7 @@ import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Test;
 import org.ros.internal.message.Message;
+import org.ros.message.Time;
 import org.ros.node.ConnectedNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -202,6 +203,57 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
             Assert.assertTrue("Cancelling a different GoalID should still publish the cancel request", cancelSent);
             Assert.assertNotEquals("Cancelling a different GoalID should not change the current goal state",
                     ClientState.WAITING_FOR_CANCEL_ACK, resultFuture.getCurrentState());
+        } catch (final Exception exception) {
+            Assert.fail(ExceptionUtils.getStackTrace(exception));
+        }
+    }
+
+    @Test
+    public final void testCancelAllCancelsCurrentGoalButNotFutureGoal() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final CountDownLatch goalTracked = new CountDownLatch(1);
+
+        this.futureBasedClientNode.getActionClient().addActionClientStatusListener(statusArray -> statusArray.getStatusList().stream()
+                .filter(goalStatus -> goalStatus != null)
+                .map(goalStatus -> goalStatus.getStatus())
+                .filter(status -> status == GoalStatus.PENDING
+                        || status == GoalStatus.ACTIVE
+                        || status == GoalStatus.PREEMPTING
+                        || status == GoalStatus.RECALLING)
+                .findFirst()
+                .ifPresent(status -> goalTracked.countDown()));
+
+        try {
+            final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
+            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> cancelledGoalFuture =
+                    this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
+            final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertTrue("The goal was never observed as tracked before cancel-all", trackedGoalObserved);
+
+            final GoalID cancelAllGoalId = this.futureBasedClientNode.getActionClient().newGoalMessage().getGoalId();
+            cancelAllGoalId.setId("");
+            cancelAllGoalId.setStamp(new Time());
+            final boolean cancelAllSent = this.futureBasedClientNode.getActionClient().sendCancelInternal(cancelAllGoalId);
+            Assert.assertTrue("Cancel-all request was not published", cancelAllSent);
+
+            final FibonacciActionResult cancelledGoalResult =
+                    cancelledGoalFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertNotNull("Cancelled result should not be null", cancelledGoalResult);
+            Assert.assertEquals("Cancel-all should preempt the tracked goal",
+                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus());
+            Assert.assertFalse("Cancelled result should be incomplete",
+                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()));
+            Assert.assertEquals("Cancelled future should be terminal", ClientState.DONE, cancelledGoalFuture.getCurrentState());
+
+            final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> futureGoal =
+                    this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
+            final FibonacciActionResult futureGoalResult =
+                    futureGoal.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assert.assertNotNull("Future result should not be null", futureGoalResult);
+            Assert.assertTrue("Future goal should still succeed after cancel-all",
+                    Arrays.equals(futureGoalResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
         } catch (final Exception exception) {
             Assert.fail(ExceptionUtils.getStackTrace(exception));
         }

@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ros.internal.message.Message;
 import org.ros.message.MessageFactory;
+import org.ros.message.Time;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.Subscriber;
@@ -35,6 +36,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class to encapsulate the actionlib server's communication and goal management.
@@ -79,6 +81,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final long terminalStatusRetentionNanos;
     private final Timer statusTick = new Timer();
     private final ConcurrentHashMap<String, ServerGoal<T_ACTION_GOAL>> goalIdToGoalStatusMap = new ConcurrentHashMap<>();
+    private volatile Time lastCancelStamp = new Time();
 
     //Non Final
     private Subscriber<T_ACTION_GOAL> goalSubscriber = null;
@@ -373,9 +376,35 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         if (goal != null) {
             final GoalID goalId = getGoalId(goal);
             final String goalIdString = goalId.getId();
+            final AtomicBoolean goalAlreadyTracked = new AtomicBoolean(false);
+            final ServerGoal<T_ACTION_GOAL> trackedGoal = this.goalIdToGoalStatusMap.compute(goalIdString, (id, existingGoal) -> {
+                if (existingGoal != null) {
+                    goalAlreadyTracked.set(true);
+                    if (existingGoal.goal == null) {
+                        copyGoalId(goalId, existingGoal.goalId);
+                    }
+                    return existingGoal;
+                }
+                return new ServerGoal<>(goal, ActionServer.this.copyGoalId(goalId));
+            });
+            final byte trackedState = trackedGoal.stateMachine.getState();
+            final boolean matchedPendingCancelPlaceholder =
+                    goalAlreadyTracked.get() && trackedGoal.goal == null && trackedState == GoalStatus.PENDING;
 
-            // start tracking this newly received goal
-            this.goalIdToGoalStatusMap.put(goalIdString, new ServerGoal<>(goal, goalId));
+            if (trackedState == GoalStatus.RECALLING || matchedPendingCancelPlaceholder) {
+                trackedGoal.terminalStatusRetentionDeadlineNanos = TERMINAL_STATUS_RETENTION_NOT_SCHEDULED_NANOS;
+                this.recallTrackedGoal(goalIdString);
+                return;
+            }
+
+            if (goalAlreadyTracked.get()) {
+                return;
+            }
+
+            if (this.isGoalCancelledByTimestamp(goalId)) {
+                this.recallTrackedGoal(goalIdString);
+                return;
+            }
 
             //this#actionServerListener is guaranteed to never be null, this call is for information purposes only
             this.actionServerListener.goalReceived(goal);
@@ -412,6 +441,26 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      */
     public final void gotCancel(final GoalID goalID) {
         if (goalID != null) {
+            if (goalID.getStamp() != null && goalID.getStamp().compareTo(this.lastCancelStamp) > 0) {
+                this.lastCancelStamp = new Time(goalID.getStamp());
+            }
+            boolean exactGoalIdMatched = false;
+            for (final Map.Entry<String, ServerGoal<T_ACTION_GOAL>> entry : this.goalIdToGoalStatusMap.entrySet()) {
+                final String trackedGoalId = entry.getKey();
+                final ServerGoal<T_ACTION_GOAL> trackedGoal = entry.getValue();
+                if (this.matchesCancelRequest(goalID, trackedGoal.goalId)) {
+                    exactGoalIdMatched = exactGoalIdMatched || trackedGoalId.equals(goalID.getId());
+                    this.requestCancel(trackedGoalId);
+                }
+            }
+            if (StringUtils.isNotBlank(goalID.getId()) && !exactGoalIdMatched) {
+                final ServerGoal<T_ACTION_GOAL> pendingCancelledGoal = this.goalIdToGoalStatusMap.compute(goalID.getId(),
+                        (id, existingGoal) -> existingGoal == null ? new ServerGoal<>(null, ActionServer.this.copyGoalId(goalID)) : existingGoal);
+                if (pendingCancelledGoal != null) {
+                    copyGoalId(goalID, pendingCancelledGoal.goalId);
+                    this.requestCancel(goalID.getId());
+                }
+            }
             this.actionServerListener.cancelReceived(goalID);
         }
     }
@@ -433,7 +482,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
                 final String goalId = entry.getKey();
                 final ServerGoal<T_ACTION_GOAL> serverGoal = entry.getValue();
                 final byte goalState = serverGoal.stateMachine.getState();
-                if (isTerminalStatus(goalState)) {
+                if (shouldExpireStatusEntry(serverGoal, goalState)) {
                     final long retentionDeadlineNanos = serverGoal.terminalStatusRetentionDeadlineNanos;
                     if (retentionDeadlineNanos == TERMINAL_STATUS_RETENTION_NOT_SCHEDULED_NANOS) {
                         serverGoal.terminalStatusRetentionDeadlineNanos = nowNanos + this.terminalStatusRetentionNanos;
@@ -494,14 +543,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @see actionlib_msgs.GoalStatus
      */
     public final byte getGoalStatus(final String goalId) {
-        final byte result;
-
-        if (this.goalIdToGoalStatusMap.containsKey(goalId)) {
-            result = this.goalIdToGoalStatusMap.get(goalId).stateMachine.getState();
-        } else {
-            result = -100;
-        }
-        return result;
+        final ServerGoal<T_ACTION_GOAL> trackedGoal = this.goalIdToGoalStatusMap.get(goalId);
+        return trackedGoal == null ? -100 : trackedGoal.stateMachine.getState();
     }
 
     /**
@@ -568,6 +611,97 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             value.stateMachine.transition(event);
             return value;
         });
+    }
+
+    static final boolean isCancelRequestedStatus(final byte status) {
+        return status == GoalStatus.PREEMPTING || status == GoalStatus.RECALLING;
+    }
+
+    static final boolean isCancelledStatus(final byte status) {
+        return status == GoalStatus.PREEMPTED || status == GoalStatus.RECALLED;
+    }
+
+    private static final boolean shouldExpireStatusEntry(final ServerGoal<?> serverGoal, final byte status) {
+        return isTerminalStatus(status) || isUnmatchedCancelPlaceholder(serverGoal, status);
+    }
+
+    private static final boolean isUnmatchedCancelPlaceholder(final ServerGoal<?> serverGoal, final byte status) {
+        return serverGoal != null && serverGoal.goal == null && status == GoalStatus.RECALLING;
+    }
+
+    private final GoalID copyGoalId(final GoalID source) {
+        final GoalID copy = this.messageFactory.newFromType(GoalID._TYPE);
+        copyGoalId(source, copy);
+        return copy;
+    }
+
+    private static final void copyGoalId(final GoalID source, final GoalID target) {
+        if (source == null || target == null) {
+            return;
+        }
+        target.setId(source.getId());
+        target.setStamp(source.getStamp() == null ? new Time() : new Time(source.getStamp()));
+    }
+
+    private final boolean isGoalCancelledByTimestamp(final GoalID goalId) {
+        return goalId != null
+                && goalId.getStamp() != null
+                && !goalId.getStamp().isZero()
+                && goalId.getStamp().compareTo(this.lastCancelStamp) <= 0;
+    }
+
+    private static final boolean isCancelAllRequest(final GoalID cancelGoalId) {
+        return cancelGoalId != null
+                && StringUtils.isBlank(cancelGoalId.getId())
+                && cancelGoalId.getStamp() != null
+                && cancelGoalId.getStamp().isZero();
+    }
+
+    private final boolean matchesCancelRequest(final GoalID cancelGoalId, final GoalID trackedGoalId) {
+        if (cancelGoalId == null || trackedGoalId == null) {
+            return false;
+        }
+        if (isCancelAllRequest(cancelGoalId)) {
+            return true;
+        }
+        if (StringUtils.isNotBlank(cancelGoalId.getId()) && cancelGoalId.getId().equals(trackedGoalId.getId())) {
+            return true;
+        }
+        return cancelGoalId.getStamp() != null
+                && !cancelGoalId.getStamp().isZero()
+                && trackedGoalId.getStamp() != null
+                && trackedGoalId.getStamp().compareTo(cancelGoalId.getStamp()) <= 0;
+    }
+
+    private final void requestCancel(final String goalIdString) {
+        final ServerGoal<T_ACTION_GOAL> trackedGoal = this.goalIdToGoalStatusMap.get(goalIdString);
+        if (trackedGoal == null) {
+            return;
+        }
+        final byte currentState = trackedGoal.stateMachine.getState();
+        if (currentState == GoalStatus.PENDING || currentState == GoalStatus.ACTIVE) {
+            this.setCancelRequested(goalIdString);
+        }
+    }
+
+    private final void recallTrackedGoal(final String goalIdString) {
+        this.requestCancel(goalIdString);
+        this.setCancel(goalIdString);
+        this.publishTrackedResult(goalIdString);
+    }
+
+    private final void publishTrackedResult(final String goalIdString) {
+        final ServerGoal<T_ACTION_GOAL> trackedGoal = this.goalIdToGoalStatusMap.get(goalIdString);
+        if (trackedGoal == null) {
+            return;
+        }
+        final T_ACTION_RESULT resultMessage = this.newResultMessage();
+        final GoalStatus resultGoalStatus = this.getResultGoalStatus(resultMessage);
+        if (resultGoalStatus != null && resultGoalStatus.getGoalId() != null) {
+            copyGoalId(trackedGoal.goalId, resultGoalStatus.getGoalId());
+            resultGoalStatus.setStatus(trackedGoal.stateMachine.getState());
+        }
+        this.sendResult(resultMessage);
     }
 
     /**

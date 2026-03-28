@@ -34,21 +34,22 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 
-class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements ActionClientResultListener<FibonacciActionResult> {
+final class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements ActionClientResultListener<FibonacciActionResult> {
     private final GoalStatusToString goalStatusToString = new GoalStatusToString();
+    private static final int MAX_PRINT_SEQUENCE_ELEMENTS = 100;
 
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     private final CountDownLatch connectCountDownLatch = new CountDownLatch(1);
 
-    private ActionClient actionClient = null;
+    private ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> actionClient = null;
 
     private Optional<FibonacciActionResult> result = Optional.empty();
     private CountDownLatch resultCountdownLatch = new CountDownLatch(1);
 
     @Override
-    public GraphName getDefaultNodeName() {
+    public final GraphName getDefaultNodeName() {
         return GraphName.of(FibonacciGraphNames.CLIENT_NODE_GRAPH_NAME);
     }
 
@@ -102,7 +103,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
         return this.resultCountdownLatch;
     }
 
-    public Optional<FibonacciActionResult> getFibonacciActionResultOptional() {
+    public final Optional<FibonacciActionResult> getFibonacciActionResultOptional() {
         return this.result;
     }
 
@@ -118,18 +119,33 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
     public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciCanceledFuture(final int order) {
 
 
-        final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resulFuture = this.submitRequest(order);
+        final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.submitRequest(order);
         LOGGER.trace("Canceling");
-        resulFuture.cancel(true);
+        resultFuture.cancel(true);
         LOGGER.trace("Cancel Request sent");
-        return resulFuture;
+        return resultFuture;
 
 
     }
 
+    public final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> getFibonnaciEarlyCanceledFuture(final int order) {
+
+        final FibonacciActionGoal goalMessage = (FibonacciActionGoal) this.actionClient.newGoalMessage();
+        goalMessage.getGoal().setOrder(order);
+        final String goalId = this.getDefaultNodeName() + "-early-cancel-" + System.nanoTime();
+        goalMessage.getGoalId().setId(goalId);
+        this.result = Optional.empty();
+        this.resultCountdownLatch = new CountDownLatch(1);
+
+        LOGGER.trace("Sending early cancel for goal ID: {}", goalId);
+        this.actionClient.sendCancel(goalMessage.getGoalId());
+        LOGGER.trace("Sending goal after cancel for goal ID: {}", goalId);
+        return this.actionClient.sendGoal(goalMessage, goalId);
+    }
+
     @Override
-    public void onStart(final ConnectedNode connectedNode) {
-        this.actionClient = new ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>(connectedNode, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
+    public final void onStart(final ConnectedNode connectedNode) {
+        this.actionClient = new ActionClient<>(connectedNode, FibonacciGraphNames.ACTION_GRAPH_NAME, FibonacciActionGoal._TYPE, FibonacciActionFeedback._TYPE, FibonacciActionResult._TYPE);
         this.actionClient.addActionClientResultListener(this);
         this.connectCountDownLatch.countDown();
     }
@@ -138,7 +154,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
      *
      */
     @Override
-    public void resultReceived(final FibonacciActionResult actionResult) {
+    public final void resultReceived(final FibonacciActionResult actionResult) {
         this.result = Optional.ofNullable(actionResult);
 
         this.resultCountdownLatch.countDown();
@@ -148,9 +164,11 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
 
             final StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("Got Fibonacci result sequence: ");
-            for (int i = 0; i < sequence.length; i++) {
-                stringBuilder.append(Integer.toString(sequence[i]));
-                stringBuilder.append("");
+            for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
+                stringBuilder.append(sequence[i]);
+            }
+            if (sequence.length > MAX_PRINT_SEQUENCE_ELEMENTS) {
+                stringBuilder.append("... showing first ").append(MAX_PRINT_SEQUENCE_ELEMENTS).append(" elements");
             }
 
             LOGGER.trace(stringBuilder.toString());
@@ -158,15 +176,17 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
     }
 
     //    @Override
-    public void feedbackReceived(final FibonacciActionFeedback message) {
+    public final void feedbackReceived(final FibonacciActionFeedback message) {
         if (LOGGER.isTraceEnabled()) {
             final FibonacciFeedback result = message.getFeedback();
             final int[] sequence = result.getSequence();
             final StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("Got Fibonacci feedback sequence: ");
-            for (int i = 0; i < sequence.length; i++) {
+            for (int i = 0; i < Math.min(sequence.length, MAX_PRINT_SEQUENCE_ELEMENTS); i++) {
                 stringBuilder.append(sequence[i]);
-                stringBuilder.append("");
+            }
+            if (sequence.length > MAX_PRINT_SEQUENCE_ELEMENTS) {
+                stringBuilder.append("... showing first ").append(MAX_PRINT_SEQUENCE_ELEMENTS).append(" elements");
             }
             LOGGER.trace(stringBuilder.toString());
         }
@@ -178,7 +198,7 @@ class ActionLibClientFeedbackListenerNode extends AbstractNodeMain implements Ac
      * @param status The status message received from the server.
      */
 //    @Override
-    public void statusReceived(final GoalStatusArray status) {
+    public final void statusReceived(final GoalStatusArray status) {
         if (LOGGER.isTraceEnabled()) {
             final StringJoiner stringJoiner = new StringJoiner(",", "Status:{", "}");
             for (final GoalStatus goalStatus : status.getStatusList()) {
