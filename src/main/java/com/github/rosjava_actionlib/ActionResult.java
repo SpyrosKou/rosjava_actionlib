@@ -33,26 +33,32 @@ public final class ActionResult<T_ACTION_RESULT extends Message> {
         this.actionResultMessage = msg;
     }
 
-    public Header getHeaderMessage() {
-        Header header = null;
+    public final Header getHeaderMessage() {
+        final Header header;
         if (this.actionResultMessage != null) {
             header = ActionLibMessagesUtils.getSubMessageFromMessage(this.actionResultMessage, "getHeader");
+        } else {
+            header = null;
         }
         return header;
     }
 
-    public GoalStatus getGoalStatusMessage() {
-        GoalStatus goalStatus = null;
+    public final GoalStatus getGoalStatusMessage() {
+        final GoalStatus goalStatus;
         if (this.actionResultMessage != null) {
             goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(this.actionResultMessage, "getStatus");
+        } else {
+            goalStatus = null;
         }
         return goalStatus;
     }
 
-    public Message getResultMessage() {
-        Message resultMessage= null;
+    public final Message getResultMessage() {
+        final Message resultMessage;
         if (this.actionResultMessage != null) {
             resultMessage = ActionLibMessagesUtils.getSubMessageFromMessage(this.actionResultMessage, "getResult");
+        } else {
+            resultMessage = null;
         }
         return resultMessage;
     }

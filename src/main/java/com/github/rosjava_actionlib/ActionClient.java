@@ -374,9 +374,21 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @see actionlib_msgs.GoalID
      */
     public final void sendCancel(final GoalID goalIDd) {
-        this.goalManager.cancelGoal();
+        this.sendCancelInternal(goalIDd);
+    }
 
+    final boolean sendCancelInternal(final GoalID goalIDd) {
+        Objects.requireNonNull(goalIDd);
+        if (this.cancelPublisher == null) {
+            return false;
+        }
+        final String currentGoalId = this.goalManager.getActionGoal() == null ? null : this.goalManager.getActionGoal().getGoalId();
+        final String cancelledGoalId = goalIDd.getId();
         this.cancelPublisher.publish(goalIDd);
+        if (StringUtils.isNotBlank(cancelledGoalId) && cancelledGoalId.equals(currentGoalId)) {
+            this.goalManager.cancelGoal();
+        }
+        return true;
     }
 
     /**
@@ -507,12 +519,15 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     private final void gotResult(final T_ACTION_RESULT resultMessage) {
         final ActionResult<T_ACTION_RESULT> actionResultMessage = new ActionResult<>(resultMessage);
-        final GoalID goalID = actionResultMessage.getGoalStatusMessage().getGoalId();
+        final GoalStatus resultGoalStatus = actionResultMessage.getGoalStatusMessage();
+        final GoalID goalId = resultGoalStatus == null ? null : resultGoalStatus.getGoalId();
+        final String currentGoalId = this.goalManager.getActionGoal() == null ? null : this.goalManager.getActionGoal().getGoalId();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Received result for action:[{}] with result goalId:[{}] while current goalId:[{}]", this.actionName, goalID.getId(), this.goalManager.getActionGoal().getGoalId());
+            final String goalId_id=goalId == null ? null : goalId.getId();
+            LOGGER.trace("Received result for action:[{}] with result goalId:[{}] while current goalId:[{}]", this.actionName,goalId_id , currentGoalId);
         }
-        if (this.goalManager.getActionGoal().getGoalId().equals(goalID.getId())) {
-            this.goalManager.updateStatus(actionResultMessage.getGoalStatusMessage().getStatus());
+        if (goalId != null && StringUtils.isNotBlank(currentGoalId) && currentGoalId.equals(goalId.getId())) {
+            this.goalManager.updateStatus(resultGoalStatus.getStatus());
 
             this.goalManager.resultReceived();
             // Propagate the callback
@@ -522,13 +537,14 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
                 }
             }
             try {
-                this.sendCancel(goalID);
+                this.sendCancel(goalId);
             } catch (final Exception exception) {
                 LOGGER.error("Error while cancelling goal of received result{}", ExceptionUtils.getStackTrace(exception));
             }
         } else {
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Received and ignored GoalId:{} because current client goal id=={}", goalID.getId(), this.goalManager.getActionGoal().getGoalId());
+                final String goalId_id=goalId == null ? null : goalId.getId();
+                LOGGER.trace("Received and ignored GoalId:{} because current client goal id=={}",goalId_id, currentGoalId);
             }
         }
     }
@@ -540,9 +556,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      *                depends on the application.
      */
     private final void gotFeedback(final T_ACTION_FEEDBACK message) {
-        ActionFeedback<T_ACTION_FEEDBACK> af = new ActionFeedback<>(message);
-        if (af.getGoalStatusMessage().getGoalId().getId().equals(goalManager.getActionGoal().getGoalId())) {
-            goalManager.updateStatus(af.getGoalStatusMessage().getStatus());
+        final ActionFeedback<T_ACTION_FEEDBACK> actionFeedback = new ActionFeedback<>(message);
+        if (actionFeedback.getGoalStatusMessage().getGoalId().getId().equals(this.goalManager.getActionGoal().getGoalId())) {
+            this.goalManager.updateStatus(actionFeedback.getGoalStatusMessage().getStatus());
 
             // Propagate the callback
             for (final ActionClientFeedbackListener<T_ACTION_FEEDBACK> actionClientListener : this.callbackFeedbackTargets) {

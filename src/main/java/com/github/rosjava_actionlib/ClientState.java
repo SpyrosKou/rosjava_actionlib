@@ -72,9 +72,11 @@ public enum ClientState {
      * @return
      */
     public final boolean isAmong(final ClientState... state) {
-        boolean result = false;
+        final boolean result;
         if (state != null) {
             result = Arrays.stream(state).filter(this::equals).findAny().isPresent();
+        } else {
+            result = false;
         }
         return result;
     }

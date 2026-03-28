@@ -49,6 +49,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     //default status_frequency is 5Hz for python and cpp
     private static final long DEFAULT_STATUS_TICK_PERIOD_MILLIS = 200;
     private static final long DEFAULT_STATUS_TICK_DELAY_MILLIS = 200;
+    private static final long DEFAULT_TERMINAL_STATUS_RETENTION_MILLIS = 5000;
+    private static final long TERMINAL_STATUS_RETENTION_NOT_SCHEDULED_NANOS = Long.MIN_VALUE;
 
     /**
      * Keeps the status of each goal
@@ -59,6 +61,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         private final T_ACTION_GOAL_TYPE goal;
         private final GoalID goalId;
         private final ServerStateMachine stateMachine = new ServerStateMachine();
+        private volatile long terminalStatusRetentionDeadlineNanos = TERMINAL_STATUS_RETENTION_NOT_SCHEDULED_NANOS;
 
         private ServerGoal(final T_ACTION_GOAL_TYPE goal, final GoalID goalId) {
             this.goal = goal;
@@ -73,9 +76,9 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final String actionName;
     private final ActionServerListener<T_ACTION_GOAL> actionServerListener;
     private final MessageFactory messageFactory;
+    private final long terminalStatusRetentionNanos;
     private final Timer statusTick = new Timer();
     private final ConcurrentHashMap<String, ServerGoal<T_ACTION_GOAL>> goalIdToGoalStatusMap = new ConcurrentHashMap<>();
-    private final Set<String> goalIdsPendingStatusPublicationRemoval = ConcurrentHashMap.newKeySet();
 
     //Non Final
     private Subscriber<T_ACTION_GOAL> goalSubscriber = null;
@@ -104,12 +107,26 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
             , final String actionGoalType
             , final String actionFeedbackType
             , final String actionResultType) {
+        this(connectedNode, actionServerListener, actionName, actionGoalType, actionFeedbackType, actionResultType,
+                DEFAULT_TERMINAL_STATUS_RETENTION_MILLIS, TimeUnit.MILLISECONDS);
+    }
+
+    ActionServer(final ConnectedNode connectedNode
+            , final ActionServerListener<T_ACTION_GOAL> actionServerListener
+            , final String actionName
+            , final String actionGoalType
+            , final String actionFeedbackType
+            , final String actionResultType
+            , final long terminalStatusRetention
+            , final TimeUnit terminalStatusRetentionTimeUnit) {
         Objects.requireNonNull(connectedNode);
         Objects.requireNonNull(actionServerListener);
+        Objects.requireNonNull(terminalStatusRetentionTimeUnit);
         Preconditions.checkArgument(StringUtils.isNotBlank(actionName));
         Preconditions.checkArgument(StringUtils.isNotBlank(actionGoalType));
         Preconditions.checkArgument(StringUtils.isNotBlank(actionFeedbackType));
         Preconditions.checkArgument(StringUtils.isNotBlank(actionResultType));
+        Preconditions.checkArgument(terminalStatusRetention >= 0);
         this.actionServerListener = actionServerListener;
 
         this.actionName = actionName;
@@ -117,6 +134,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         this.actionFeedbackType = actionFeedbackType;
         this.actionResultType = actionResultType;
         this.messageFactory = connectedNode.getDefaultMessageFactory();
+        this.terminalStatusRetentionNanos = terminalStatusRetentionTimeUnit.toNanos(terminalStatusRetention);
         this.connect(connectedNode);
     }
 
@@ -147,29 +165,42 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @param result The action result message to send.
      */
     public final void sendResult(final T_ACTION_RESULT result) {
+        final GoalStatus goalStatus = this.synchronizeResultGoalStatus(this.getResultGoalStatus(result));
         if (LOGGER.isTraceEnabled()) {
-            final GoalStatus goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
             final String goalId = goalStatus != null && goalStatus.getGoalId() != null ? goalStatus.getGoalId().getId() : null;
             LOGGER.trace("Publishing result on action:[{}] with goalId:[{}]", this.actionName, goalId);
         }
         this.resultPublisher.publish(result);
-        this.evictGoalForResult(result);
+        if (goalStatus != null && isTerminalStatus(goalStatus.getStatus())) {
+            this.sendStatusTick();
+        }
     }
 
     private final void evictGoal(final String goalId) {
         if (goalId == null) {
             return;
         }
-        this.goalIdsPendingStatusPublicationRemoval.remove(goalId);
         this.goalIdToGoalStatusMap.remove(goalId);
     }
 
-    private final void evictGoalForResult(final T_ACTION_RESULT result) {
-        final GoalStatus goalStatus = ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
+    private final GoalStatus getResultGoalStatus(final T_ACTION_RESULT result) {
+        return ActionLibMessagesUtils.getSubMessageFromMessage(result, "getStatus");
+    }
+
+    private final GoalStatus synchronizeResultGoalStatus(final GoalStatus goalStatus) {
         if (goalStatus == null || goalStatus.getGoalId() == null) {
-            return;
+            return goalStatus;
         }
-        this.evictGoal(goalStatus.getGoalId().getId());
+        final String goalId = goalStatus.getGoalId().getId();
+        final ServerGoal<T_ACTION_GOAL> serverGoal = this.goalIdToGoalStatusMap.get(goalId);
+        if (serverGoal == null) {
+            return goalStatus;
+        }
+        goalStatus.getGoalId().setId(serverGoal.goalId.getId());
+        goalStatus.getGoalId().setStamp(serverGoal.goalId.getStamp());
+        final byte trackedStatus = serverGoal.stateMachine.getState();
+        goalStatus.setStatus(trackedStatus);
+        return goalStatus;
     }
 
     static final boolean isTerminalStatus(final byte status) {
@@ -178,13 +209,6 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
                 || status == GoalStatus.PREEMPTED
                 || status == GoalStatus.SUCCEEDED
                 || status == GoalStatus.ABORTED;
-    }
-
-    private final void markGoalForRemovalAfterStatusPublication(final String goalIdString) {
-        if (goalIdString == null) {
-            return;
-        }
-        this.goalIdsPendingStatusPublicationRemoval.add(goalIdString);
     }
 
     /**
@@ -399,20 +423,35 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      */
     public final synchronized void sendStatusTick() {
         try {
+            final long nowNanos = System.nanoTime();
             final GoalStatusArray goalStatusArray = this.messageFactory.newFromType(GoalStatusArray._TYPE);
             final List<GoalStatus> goalStatusList = new ArrayList<>(this.goalIdToGoalStatusMap.size());
+            final List<String> goalIdsToEvict = new ArrayList<>();
             goalStatusArray.setStatusList(goalStatusList);
 
-            for (final ServerGoal<T_ACTION_GOAL> serverGoal : this.goalIdToGoalStatusMap.values()) {
+            for (final Map.Entry<String, ServerGoal<T_ACTION_GOAL>> entry : this.goalIdToGoalStatusMap.entrySet()) {
+                final String goalId = entry.getKey();
+                final ServerGoal<T_ACTION_GOAL> serverGoal = entry.getValue();
+                final byte goalState = serverGoal.stateMachine.getState();
+                if (isTerminalStatus(goalState)) {
+                    final long retentionDeadlineNanos = serverGoal.terminalStatusRetentionDeadlineNanos;
+                    if (retentionDeadlineNanos == TERMINAL_STATUS_RETENTION_NOT_SCHEDULED_NANOS) {
+                        serverGoal.terminalStatusRetentionDeadlineNanos = nowNanos + this.terminalStatusRetentionNanos;
+                    } else if (retentionDeadlineNanos <= nowNanos) {
+                        goalIdsToEvict.add(goalId);
+                        continue;
+                    }
+                } else {
+                    serverGoal.terminalStatusRetentionDeadlineNanos = TERMINAL_STATUS_RETENTION_NOT_SCHEDULED_NANOS;
+                }
                 final GoalStatus goalStatus = this.messageFactory.newFromType(GoalStatus._TYPE);
                 goalStatus.setGoalId(serverGoal.goalId);
-                goalStatus.setStatus((byte) serverGoal.stateMachine.getState());
+                goalStatus.setStatus(goalState);
                 goalStatusList.add(goalStatus);
             }
 
 
             this.sendStatus(goalStatusArray);
-            final List<String> goalIdsToEvict = new ArrayList<>(this.goalIdsPendingStatusPublicationRemoval);
             goalIdsToEvict.forEach(this::evictGoal);
 
         } catch (final Exception exception) {
@@ -526,10 +565,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
 
     private final void recordTransitionEvent(final String goalIdString, final int event) {
         this.goalIdToGoalStatusMap.computeIfPresent(goalIdString, (id, value) -> {
-            final byte nextStatus = (byte) value.stateMachine.transition(event);
-            if (isTerminalStatus(nextStatus)) {
-                this.markGoalForRemovalAfterStatusPublication(goalIdString);
-            }
+            value.stateMachine.transition(event);
             return value;
         });
     }
