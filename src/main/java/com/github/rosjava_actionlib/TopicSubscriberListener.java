@@ -3,7 +3,6 @@ package com.github.rosjava_actionlib;
 import com.google.common.base.Stopwatch;
 import org.ros.internal.message.Message;
 import org.ros.internal.node.topic.PublisherIdentifier;
-import org.ros.internal.node.topic.TopicIdentifier;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
 import org.ros.node.ConnectedNode;
@@ -49,7 +48,7 @@ final class TopicSubscriberListener<T extends Message> extends TopicParticipantL
                 break;
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
+                    LOGGER.trace("Interrupted while:{} after:{} {}", this.toString(), stopwatch.elapsed(timeUnit), timeUnit.name());
                 }
                 throw interruptedException;
             }
@@ -101,7 +100,7 @@ final class TopicSubscriberListener<T extends Message> extends TopicParticipantL
         final long publishers = this.knownPublishersCount.incrementAndGet();
         this.publisherConnectionNoticed.countDown();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("New publisher for Topic:" + publisherIdentifier.getTopicName() + " node:" + publisherIdentifier.getNodeName() + " type:" + subscriber.getTopicMessageType() + " total publishers:" + publishers);
+            LOGGER.trace("New publisher for Topic:{} node:{} type:{} total publishers:{}", publisherIdentifier.getTopicName(), publisherIdentifier.getNodeName(), subscriber.getTopicMessageType(), publishers);
         }
         this.callOnceOnConnection();
     }

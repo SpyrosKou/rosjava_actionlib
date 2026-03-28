@@ -3,7 +3,6 @@ package com.github.rosjava_actionlib;
 import com.google.common.base.Stopwatch;
 import org.ros.internal.message.Message;
 import org.ros.internal.node.topic.SubscriberIdentifier;
-import org.ros.internal.node.topic.TopicIdentifier;
 import org.ros.master.client.MasterStateClient;
 import org.ros.master.client.TopicSystemState;
 import org.ros.node.ConnectedNode;
@@ -51,7 +50,7 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
                 break;
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(timeUnit) + " " + timeUnit.name());
+                    LOGGER.trace("Interrupted while:{} after:{} {}", this.toString(), stopwatch.elapsed(timeUnit), timeUnit.name());
                 }
                 throw interruptedException;
             }
@@ -101,7 +100,7 @@ final class TopicPublisherListener<T extends Message> extends TopicParticipantLi
         final long subscribers = this.knownSubscribersCount.get();
         this.subscriberConnectionNoticed.countDown();
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("New publisher for Topic:" + publisher.getTopicName() + " type:" + publisher.getTopicMessageType() + " total subscribers:" + subscribers);
+            LOGGER.trace("New publisher for Topic:{} type:{} total subscribers:{}", publisher.getTopicName(), publisher.getTopicMessageType(), subscribers);
         }
         this.callOnceOnConnection();
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 Spyros Koukas
+ * Copyright 2023 Spyros Koukas
  *
  * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,11 +20,13 @@ package com.github.rosjava_actionlib;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
-import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

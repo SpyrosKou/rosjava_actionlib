@@ -3,21 +3,13 @@ package com.github.rosjava_actionlib;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
-import org.ros.internal.message.Message;
-import org.ros.internal.node.topic.PublisherIdentifier;
-import org.ros.internal.node.topic.SubscriberIdentifier;
-import org.ros.internal.node.topic.TopicIdentifier;
 import org.ros.internal.node.topic.TopicParticipant;
 import org.ros.master.client.MasterStateClient;
-import org.ros.master.client.TopicSystemState;
 import org.ros.node.ConnectedNode;
-import org.ros.node.topic.Publisher;
-import org.ros.node.topic.Subscriber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
-import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -113,7 +105,7 @@ abstract class TopicParticipantListener {
                 return this.isRegistered();
             } catch (final InterruptedException interruptedException) {
                 if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Interrupted while:" + this.toString() + " after:" + stopwatch.elapsed(TimeUnit.MILLISECONDS) + " " + TimeUnit.MILLISECONDS);
+                    LOGGER.trace("Interrupted while:{} after:{} {}", this.toString(), stopwatch.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
                 }
                 throw interruptedException;
             }

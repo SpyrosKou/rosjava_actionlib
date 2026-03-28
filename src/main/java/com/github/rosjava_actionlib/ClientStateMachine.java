@@ -21,7 +21,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -66,7 +69,7 @@ final class ClientStateMachine {
     final synchronized void setState(final ClientState state) {
         Objects.requireNonNull(state);
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info("ClientStateMachine - State changed from " + this.state + " to " + state);
+            LOGGER.info("ClientStateMachine - State changed from {} to {}", this.state, state);
         }
         this.state = state;
     }
@@ -99,13 +102,13 @@ final class ClientStateMachine {
         if (!nextStates.isEmpty()) {
             if (nextStates.size() == 1 && nextStates.contains(this.state)) {
                 if (this.LOGGER.isTraceEnabled()) {
-                    this.LOGGER.trace("Maintaining ClientState:" + this.state + " for GoalStatus:" + goalStatus);
+                    this.LOGGER.trace("Maintaining ClientState:{} for GoalStatus:{}", this.state, goalStatus);
                 }
             } else {
                 for (int i = 0; i < nextStates.size(); i++) {
                     final ClientState state = nextStates.get(i);
                     if (this.LOGGER.isTraceEnabled()) {
-                        this.LOGGER.trace("Transition" + (i + 1) + " of " + nextStates.size() + " from ClientState:" + this.state + " to ClientState: " + state + " on GoalStatus:" + goalStatus);
+                        this.LOGGER.trace("Transition{} of {} from ClientState:{} to ClientState: {} on GoalStatus:{}", i + 1, nextStates.size(), this.state, state, goalStatus);
                     }
 
                     this.state = state;
