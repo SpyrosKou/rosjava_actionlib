@@ -1,140 +1,184 @@
-# Actionlib for Rosjava
-A pure java implementation of [actionlib](http://wiki.ros.org/actionlib) for [rosjava](http://wiki.ros.org/rosjava).
+# rosjava_actionlib
 
-## Key Features:
-1. Easy developing and testing in any OS (Windows, Linux, Mac) without a ROS installation. 
-2. Compatible and usable with [ROS](https://www.ros.org). Tested with [ROS Indigo](http://wiki.ros.org/indigo).
-3. Uses [Log4j2](https://logging.apache.org/log4j/2.x/) and [SL4J](http://www.slf4j.org/)
-4. Smaller public API, with all the needed functionality plus some extras. 
-    * The API favours composition based designs and prevents inheriting the project classes. Where possible classes and methods are marked with the `final` modifier to prevent extension. 
-    * Includes separate ActionClientResult, ActionClientStatus and ActionClientFeedbackListener as well a complete ActionClientListener
-    * ActionClient can accept multiple simultaneous Client listeners of different types, that can also be removed
-    * The public methods and API includes only required elements. Only needed classes and methods are public.
-    * Refactored code, grouping together common elements
-5. Robust detection of started ActionServer in waitForActionServerToStart
-6. Targeted to be used as part of other Java / ROS Java applications via gradle or maven, similar to other java libraries
+Pure Java ROS1 `actionlib` for `rosjava`, maintained as a Gradle-only library.
 
-Other Changes:   
-1. `ActionClient` only responds to messages for the same GoalId.
-2. `ActionClient` will cancel a `GoalId` after receiving it, to allow the server to remove it from the `GoalStatusArray`
-3. `ActionClient` can call a [`Runnable`](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Runnable.html) once and only if and when connected to the ActionLib protocol.
+This library is built for Java applications that need ROS1 action clients and servers on a modern JVM.
+Focuses on: connection readiness, cancellation, lifecycle correctness, and testability.
 
- 
-## Requirements:
-* Java 11 or greater (OpenJDK should work).
-* For usage with a ROS installation the following packages:
-    * are needed in runtime: ```ros-$ROS_DISTRO-actionlib``` ```ros-$ROS_DISTRO-genjava```
-    * could be helpful for testing/development: ```ros-$ROS_DISTRO-actionlib-tutorials``` 
- 
+It supports cross-platform development on Windows, Linux, and macOS, and it is a Gradle-first project for straightforward library consumption from Java codebases.
 
-## Downloading:
- TODO
+## Main Features
 
-## Building
-The project will be compiled and tested in any OS (Windows, Linux, Mac) without any requirement for a ROS installation.
-Instructions are provided hereafter for Windows and Linux.  
-### Windows Power Shell
-1. [Clone](https://git-scm.com/docs/git-clone) the [project repository](https://github.com/SpyrosKou/rosjava_actionlib.git):
-`git clone https://github.com/SpyrosKou/rosjava_actionlib.git`
+- Pure Java `ActionClient` and `ActionServer` implementations for ROS1 `actionlib`
+- Modern toolchain: Gradle, Java 21,
+- Uses [`rosjava 0.4.1.1`](https://github.com/SpyrosKou/rosjava_core) available as a dependency in [SpyrosKou/rosjava_mvn_repo](https://github.com/SpyrosKou/rosjava_mvn_repo)
+- Cross-platform development and testing
+- No local ROS installation is required for default Gradle build or test
+- Future-based client API with typed feedback, result, and status listeners
+- Explicit connection wait APIs
+- Reduce use of sleep/polling logic
+- Stronger cancellation handling, including cancel-by-id, cancel-all, cancel-before-time, and early-cancel scenarios
+- Broad lifecycle and interoperability testing
+- ActionServerListener.acceptGoal() can defer the accept/reject decision, allowing manual goal handling.
 
-2. Go into the cloned repository directory:
-`cd .\rosjava_actionlib\`
+## What the library focuses on
 
-3. Build the project.
-`.\gradlew.bat build`
+- Correct ROS1 action behavior. Goal lifecycle handling is tighter around terminal states, result/status consistency, and cancel processing.
+- Better startup and connection handling. Clients can explicitly wait for registration, publishers, subscribers, or full server connectivity without using polling and sleeps.
+- A cleaner client-facing API. `ActionFuture`, typed listeners, removable listeners, and one-time connection hooks make the library easier to embed in larger Java applications.
+- Lower overhead on long-running servers. Goal retention and status publication were tightened, and reflective hot paths were reduced with caching.
+- Strong coverage in tests. The repository exercises repeated goals, cancellation, terminal status publication, connection readiness, and interoperability scenarios.
 
-4. Running the Unit tests. The tests will run during the build, but the following command can run the tests on demand. 
-`.\gradlew.bat test`
+## Requirements
 
+- Java 21 to build the current codebase
+- A ROS1 master is only needed when interoperating with external ROS nodes
+- A local ROS installation is not required for normal compilation or for the default test suite
 
-### Linux
-1. [Clone](https://git-scm.com/docs/git-clone) the [project repository](https://github.com/SpyrosKou/rosjava_actionlib.git):
-`git clone https://github.com/SpyrosKou/rosjava_actionlib.git`
+## Build and test
 
-2. Go into the cloned repository directory:
-`cd rosjava_actionlib/`
+### Windows (PowerShell)
 
-3. [Add execute permission](http://manpages.ubuntu.com/manpages/focal/man1/chmod.1.html) to gradlew script:
-`sudo chmod +x gradlew`
-
-4. Build the project. Tests will be executed automatically.
-`./gradlew build`
-
-5. Running the Unit tests. The tests will run during the build, but the following command can run the tests on demand. 
-./gradlew test`
-
-
-## Running a test client:
-1. TODO
-
-## Using a Client
-
-When an [ActionClient](https://github.com/SpyrosKou/rosjava_actionlib/blob/kinetic/src/main/java/com/github/rosjava_actionlib/ActionClient.java) invokes a server it returns an [ActionFuture](https://github.com/SpyrosKou/rosjava_actionlib/blob/kinetic/src/main/java/com/github/rosjava_actionlib/ActionFuture.java).
-
-See an example client at [FutureBasedClient](https://github.com/SpyrosKou/rosjava_actionlib/blob/kinetic/src/test/java/com/github/rosjava_actionlib/FutureBasedClient.java) .
-
-The [FutureBasedClient](https://github.com/SpyrosKou/rosjava_actionlib/blob/kinetic/src/test/java/com/github/rosjava_actionlib/FutureBasedClient.java) usage is demonstrated in [FutureBasedClientTest](https://github.com/SpyrosKou/rosjava_actionlib/blob/kinetic/src/test/java/com/github/rosjava_actionlib/FutureBasedClientTest.java). 
-
-## Output from the test client
-The test client will connect to the fibonacci server and send it a goal. It
-should then receive feedback from the server and a final response. The output
-should look something like this:
-```
-Loading node class: com.github.rosjava_actionlib.FibonacciActionLibClient
-
-Waiting for action server to start...
-Action server started.
-
-Sending goal...
-Sent goal with ID: /fibonacci_test_client-1-1453494018.17000000
-Waiting for goal to complete...
-Feedback from Fibonacci server: 0 1 1
-Feedback from Fibonacci server: 0 1 1 2
-Feedback from Fibonacci server: 0 1 1 2 3
-Got Fibonacci result sequence: 0 1 1 2 3
-Goal completed!
-
-Sending a new goal...
-Sent goal with ID: /fibonacci_test_client-2-1453494021.25000000
-Cancelling this goal...
-Feedback from Fibonacci server: 0 1 1
-Got Fibonacci result sequence:
-Goal cancelled succesfully.
-
-Bye!
+```powershell
+git clone https://github.com/SpyrosKou/rosjava_actionlib.git
+cd .\rosjava_actionlib\
+.\gradlew.bat build
 ```
 
-## Running a test server:
-1. TODO
+Run tests explicitly:
 
-## Output from the test server
-The test server will start running and wait for clients to connect and send goal messages.
-Once the fibonacci client sends a goal, the server accepts it and sends a result. The output
-should look something like this:
-```
-Goal received.
-Goal accepted.
-Sending result...
+```powershell
+.\gradlew.bat test
 ```
 
-## Running demos for the server and the client
+### Linux / macOS
 
-
-
-You can launch a demo client and a fibonacci action server all at once using:
-```
-roslaunch rosjava_actionlib client_demo.launch --screen
-```
-
-
-You can also launch a demo server and a fibonacci action client all at once using:
-```
-roslaunch rosjava_actionlib server_demo.launch --screen
+```bash
+git clone https://github.com/SpyrosKou/rosjava_actionlib.git
+cd rosjava_actionlib
+chmod +x gradlew
+./gradlew build
 ```
 
-Use Ctrl+C to stop the execution once it's finished.
+Run tests explicitly:
 
+```bash
+./gradlew test
+```
 
+The integration tests start a private `RosCore` by default. To point the tests at an external master, update [`src/test/resources/test_configurations.properties`](src/test/resources/test_configurations.properties) and set `USE_EXTERNAL_ROS_MASTER=true`.
 
-## Motivation
- TODO
+## Quick client example
+
+```java
+ActionClient<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> client =
+        new ActionClient<>(
+                connectedNode,
+                "/fibonacci",
+                FibonacciActionGoal._TYPE,
+                FibonacciActionFeedback._TYPE,
+                FibonacciActionResult._TYPE);
+
+client.addActionClientFeedbackListener(feedback -> {
+    // inspect incremental feedback
+});
+
+client.addActionClientResultListener(result -> {
+    // inspect the terminal result
+});
+
+if (!client.waitForServerConnection(5, TimeUnit.SECONDS)) {
+    throw new IllegalStateException("Action server did not appear in time");
+}
+
+FibonacciActionGoal goal = client.newGoalMessage();
+goal.getGoal().setOrder(10);
+
+ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> future =
+        client.sendGoal(goal);
+
+FibonacciActionResult result = future.get(10, TimeUnit.SECONDS);
+```
+
+Useful client-side APIs include:
+
+- `waitForRegistration(...)`
+- `waitForServerPublishers(...)`
+- `waitForClientSubscribers(...)`
+- `waitForServerConnection(...)`
+- `cancelGoal(goalId)`
+- `cancelAll()`
+- `cancelBefore(stamp)`
+
+## Server-side model
+
+`ActionServer` keeps the familiar ROS1 actionlib model, but the fork tightens status publication, result/status synchronization, and cancel handling.
+
+Servers implement `ActionServerListener<T_ACTION_GOAL>`. The `acceptGoal(...)` method returns `Optional<Boolean>`, which lets a server:
+
+- explicitly accept a goal
+- explicitly reject a goal
+- keep acceptance under manual control when needed
+
+See [`src/test/java/com/github/rosjava_actionlib/FibonacciActionLibServer.java`](src/test/java/com/github/rosjava_actionlib/FibonacciActionLibServer.java) for a maintained minimal server example.
+
+## Examples and tests
+
+The most useful examples live in the test and integration code, because that is where the current fork is actively exercised.
+
+- [`src/test/java/com/github/rosjava_actionlib/FutureBasedClientNode.java`](src/test/java/com/github/rosjava_actionlib/FutureBasedClientNode.java): future-based client usage
+- [`src/test/java/com/github/rosjava_actionlib/FibonacciActionLibServer.java`](src/test/java/com/github/rosjava_actionlib/FibonacciActionLibServer.java): minimal server implementation
+- [`src/test/java/com/github/rosjava_actionlib/FibonacciFutureBasedClientNodeTest.java`](src/test/java/com/github/rosjava_actionlib/FibonacciFutureBasedClientNodeTest.java): repeated goals, cancellation paths, and terminal status behavior
+- [`src/test/java/com/github/rosjava_actionlib/WaitMethodsClientServerTest.java`](src/test/java/com/github/rosjava_actionlib/WaitMethodsClientServerTest.java): wait and connection behavior
+- [`src/test/java/com/github/rosjava_actionlib/ActionServerResultStatusCompatibilityTest.java`](src/test/java/com/github/rosjava_actionlib/ActionServerResultStatusCompatibilityTest.java): result/status consistency
+- [`src/test/java/com/github/rosjava_actionlib/TurtleSimActionLibClientTest.java`](src/test/java/com/github/rosjava_actionlib/TurtleSimActionLibClientTest.java): `turtle_actionlib` interoperability scenario, ignored by default
+
+## Using as a dependency
+The library can be used directly as a dependency without cloning the repo, or it can build and used locally after cloning the repo.
+
+### Use as a dependency
+The library can be used directly, without clonging and building this repo.
+Artifacts are available from [`SpyrosKou/rosjava_mvn_repo`](https://github.com/SpyrosKou/rosjava_mvn_repo). To use directly as a dependency in Gradle:
+
+```gradle
+repositories {
+    mavenCentral()
+    maven {
+        url "https://github.com/SpyrosKou/rosjava_mvn_repo/raw/noetic"
+        name "GithubSpyrosKouRepository"
+    }
+}
+
+dependencies {
+    implementation "com.github.rosjava:rosjava_actionlib:2026.03.29.02"
+}
+```
+
+### Build, Publish and Consume locally
+The Gradle build is configured for `maven-publish`, including source and javadoc jars.
+
+Publish to your local Maven cache:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+Then consume it from another Gradle project:
+
+```gradle
+repositories {
+    mavenLocal()
+}
+
+dependencies {
+    implementation "com.github.rosjava:rosjava_actionlib:2026.03.29.02"
+}
+```
+
+## Changelog
+
+Fork-specific changes are tracked in [`CHANGELOG.rst`](CHANGELOG.rst).
+
+## License
+
+Apache License 2.0
