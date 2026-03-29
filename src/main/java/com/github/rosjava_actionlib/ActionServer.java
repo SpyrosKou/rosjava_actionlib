@@ -76,6 +76,7 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     private final String actionResultType;
     private final String actionFeedbackType;
     private final String actionName;
+    private final ActionLibTopics actionTopics;
     private final ActionServerListener<T_ACTION_GOAL> actionServerListener;
     private final MessageFactory messageFactory;
     private final long terminalStatusRetentionNanos;
@@ -136,9 +137,19 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
         this.actionGoalType = actionGoalType;
         this.actionFeedbackType = actionFeedbackType;
         this.actionResultType = actionResultType;
+        this.actionTopics = new ActionLibTopics(actionName);
         this.messageFactory = connectedNode.getDefaultMessageFactory();
         this.terminalStatusRetentionNanos = terminalStatusRetentionTimeUnit.toNanos(terminalStatusRetention);
         this.connect(connectedNode);
+    }
+
+    /**
+     * Returns the preferred immutable API for reading this server's actionlib topic names.
+     *
+     * @return topic bundle for this action server
+     */
+    public final ActionLibTopics getActionTopics() {
+        return this.actionTopics;
     }
 
 
@@ -220,9 +231,9 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @param connectedNode The object representing a connectedNode connected to a ROS master.
      */
     private final void publishServer(final ConnectedNode connectedNode) {
-        this.statusPublisher = connectedNode.newPublisher(this.getActionStatusTopic(), GoalStatusArray._TYPE);
-        this.feedbackPublisher = connectedNode.newPublisher(this.getActionFeedbackTopic(), actionFeedbackType);
-        this.resultPublisher = connectedNode.newPublisher(this.getActionResultTopic(), actionResultType);
+        this.statusPublisher = connectedNode.newPublisher(this.actionTopics.getGoalStatusTopicName(), GoalStatusArray._TYPE);
+        this.feedbackPublisher = connectedNode.newPublisher(this.actionTopics.getFeedbackTopicName(), actionFeedbackType);
+        this.resultPublisher = connectedNode.newPublisher(this.actionTopics.getResultTopicName(), actionResultType);
         this.statusTick.scheduleAtFixedRate(new TimerTask() {
             @Override
             public final void run() {
@@ -232,23 +243,27 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     }
 
     /**
-     * @return
+     * @return published topics in the order result, feedback, status
+     * @deprecated Use {@link #getActionTopics()} and read the required topic names directly.
      */
+    @Deprecated
     public final String[] getPublishedTopics() {
         final String[] publishedTopics = new String[3];
-        publishedTopics[0] = this.getActionResultTopic();
-        publishedTopics[1] = this.getActionFeedbackTopic();
-        publishedTopics[2] = this.getActionStatusTopic();
+        publishedTopics[0] = this.actionTopics.getResultTopicName();
+        publishedTopics[1] = this.actionTopics.getFeedbackTopicName();
+        publishedTopics[2] = this.actionTopics.getGoalStatusTopicName();
         return publishedTopics;
     }
 
     /**
-     * @return
+     * @return subscribed topics in the order goal, cancel
+     * @deprecated Use {@link #getActionTopics()} and read the required topic names directly.
      */
+    @Deprecated
     public final String[] getSubscribedTopics() {
         final String[] subscribedTopics = new String[2];
-        subscribedTopics[0] = this.getActionGoalTopic();
-        subscribedTopics[1] = this.getActionCancelTopic();
+        subscribedTopics[0] = this.actionTopics.getGoalTopicName();
+        subscribedTopics[1] = this.actionTopics.getCancelTopicName();
 
         return subscribedTopics;
     }
@@ -256,46 +271,56 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
     /**
      * Subscribed topic
      *
-     * @return
+     * @return goal topic name
+     * @deprecated Use {@link #getActionTopics()} and then {@link ActionLibTopics#getGoalTopicName()}.
      */
+    @Deprecated
     public final String getActionGoalTopic() {
-        return this.actionName + "/goal";
+        return this.actionTopics.getGoalTopicName();
     }
 
     /**
      * Subscribed topic
      *
-     * @return
+     * @return cancel topic name
+     * @deprecated Use {@link #getActionTopics()} and then {@link ActionLibTopics#getCancelTopicName()}.
      */
+    @Deprecated
     public final String getActionCancelTopic() {
-        return this.actionName + "/cancel";
+        return this.actionTopics.getCancelTopicName();
     }
 
     /**
      * Published topic
      *
-     * @return
+     * @return status topic name
+     * @deprecated Use {@link #getActionTopics()} and then {@link ActionLibTopics#getGoalStatusTopicName()}.
      */
+    @Deprecated
     public final String getActionStatusTopic() {
-        return this.actionName + "/status";
+        return this.actionTopics.getGoalStatusTopicName();
     }
 
     /**
      * Published topic
      *
-     * @return
+     * @return feedback topic name
+     * @deprecated Use {@link #getActionTopics()} and then {@link ActionLibTopics#getFeedbackTopicName()}.
      */
+    @Deprecated
     public final String getActionFeedbackTopic() {
-        return this.actionName + "/feedback";
+        return this.actionTopics.getFeedbackTopicName();
     }
 
     /**
      * Published topic
      *
-     * @return
+     * @return result topic name
+     * @deprecated Use {@link #getActionTopics()} and then {@link ActionLibTopics#getResultTopicName()}.
      */
+    @Deprecated
     public final String getActionResultTopic() {
-        return this.actionName + "/result";
+        return this.actionTopics.getResultTopicName();
     }
 
 
@@ -347,8 +372,8 @@ public final class ActionServer<T_ACTION_GOAL extends Message, T_ACTION_FEEDBACK
      * @param node The ROS node connected to the master.
      */
     private final void subscribeToClient(final ConnectedNode node) {
-        this.goalSubscriber = node.newSubscriber(this.getActionGoalTopic(), actionGoalType);
-        this.cancelSubscriber = node.newSubscriber(this.getActionCancelTopic(), GoalID._TYPE);
+        this.goalSubscriber = node.newSubscriber(this.actionTopics.getGoalTopicName(), actionGoalType);
+        this.cancelSubscriber = node.newSubscriber(this.actionTopics.getCancelTopicName(), GoalID._TYPE);
         this.goalSubscriber.addMessageListener(this::gotGoal);
         this.cancelSubscriber.addMessageListener(this::gotCancel);
     }

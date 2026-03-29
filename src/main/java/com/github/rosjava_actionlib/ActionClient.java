@@ -66,6 +66,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private final GoalStatusToString goalStatusToString = new GoalStatusToString();
 
     private final ClientGoalManager<T_ACTION_GOAL> goalManager = new ClientGoalManager<>(new ActionGoal<>());
+    private final ActionLibTopics actionTopics;
 
     private final String actionGoalType;
     private final String actionResultType;
@@ -100,13 +101,13 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
     private final TopicPublisherListener<GoalID> cancelTopicPublisherListener;
     private final CopyOnWriteArraySet<String> topicsToBeConnectedSet;
 
-    private static final CopyOnWriteArraySet<String> createTopicConnectionSet(final String actionName) {
+    private static final CopyOnWriteArraySet<String> createTopicConnectionSet(final ActionLibTopics actionTopics) {
         final CopyOnWriteArraySet<String> result = new CopyOnWriteArraySet<>();
-        result.add(ActionClient.getCancelTopicName(actionName));
-        result.add(ActionClient.getResultTopicName(actionName));
-        result.add(ActionClient.getStatusTopicName(actionName));
-        result.add(ActionClient.getFeedbackTopicName(actionName));
-        result.add(ActionClient.getGoalTopicName(actionName));
+        result.add(actionTopics.getCancelTopicName());
+        result.add(actionTopics.getResultTopicName());
+        result.add(actionTopics.getGoalStatusTopicName());
+        result.add(actionTopics.getFeedbackTopicName());
+        result.add(actionTopics.getGoalTopicName());
         assert (result.size() == 5);
         return result;
     }
@@ -167,16 +168,21 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         this.actionGoalType = actionGoalType;
         this.actionFeedbackType = actionFeedbackType;
         this.actionResultType = actionResultType;
+        this.actionTopics = new ActionLibTopics(actionName);
         this.goalIdGenerator = new GoalIDGenerator(connectedNode);
         this.connectedNode = connectedNode;
-        this.topicsToBeConnectedSet = ActionClient.createTopicConnectionSet(actionName);
+        this.topicsToBeConnectedSet = ActionClient.createTopicConnectionSet(this.actionTopics);
         this.onConnection = onConnection;
-        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getStatusTopicName(actionName), this::processOnConnection);
-        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getResultTopicName(actionName), this::processOnConnection);
-        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, ActionClient.getFeedbackTopicName(actionName), this::processOnConnection);
-        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getGoalTopicName(actionName), this::processOnConnection);
-        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, ActionClient.getCancelTopicName(actionName), this::processOnConnection);
+        this.statusArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.actionTopics.getGoalStatusTopicName(), this::processOnConnection);
+        this.resultArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.actionTopics.getResultTopicName(), this::processOnConnection);
+        this.feedbackArrayTopicSubscriberListener = new TopicSubscriberListener<>(connectedNode, this.actionTopics.getFeedbackTopicName(), this::processOnConnection);
+        this.goalTopicPublisherListener = new TopicPublisherListener<>(connectedNode, this.actionTopics.getGoalTopicName(), this::processOnConnection);
+        this.cancelTopicPublisherListener = new TopicPublisherListener<>(connectedNode, this.actionTopics.getCancelTopicName(), this::processOnConnection);
         this.connect(connectedNode);
+    }
+
+    public final ActionLibTopics getActionTopics() {
+        return this.actionTopics;
     }
 
     /**
@@ -438,10 +444,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      */
     private final void publishClient(final ConnectedNode connectedNode) {
         Objects.requireNonNull(connectedNode);
-        this.goalPublisher = connectedNode.newPublisher(this.getGoalTopicName(), actionGoalType);
+        this.goalPublisher = connectedNode.newPublisher(this.actionTopics.getGoalTopicName(), actionGoalType);
         this.goalPublisher.setLatchMode(LATCH_MODE);
         this.goalPublisher.addListener(this.goalTopicPublisherListener);
-        this.cancelPublisher = connectedNode.newPublisher(this.getCancelTopicName(), GoalID._TYPE);
+        this.cancelPublisher = connectedNode.newPublisher(this.actionTopics.getCancelTopicName(), GoalID._TYPE);
         this.cancelPublisher.addListener(this.cancelTopicPublisherListener);
     }
 
@@ -469,9 +475,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @param node The node object that is connected to the ROS master.
      */
     private final void subscribeToServer(final ConnectedNode node) {
-        this.serverResultSubscriber = node.newSubscriber(this.getResultTopicName(), actionResultType);
-        this.serverFeedbackSubscriber = node.newSubscriber(this.getFeedbackTopicName(), actionFeedbackType);
-        this.serverStatusSubscriber = node.newSubscriber(this.getStatusTopicName(), GoalStatusArray._TYPE);
+        this.serverResultSubscriber = node.newSubscriber(this.actionTopics.getResultTopicName(), actionResultType);
+        this.serverFeedbackSubscriber = node.newSubscriber(this.actionTopics.getFeedbackTopicName(), actionFeedbackType);
+        this.serverStatusSubscriber = node.newSubscriber(this.actionTopics.getGoalStatusTopicName(), GoalStatusArray._TYPE);
 
         Preconditions.checkState(this.resultArrayTopicSubscriberListener != null);
         Preconditions.checkState(this.feedbackArrayTopicSubscriberListener != null);
@@ -487,48 +493,6 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
 
     }
-
-    final String getResultTopicName() {
-        return ActionClient.getResultTopicName(actionName);
-    }
-
-    final String getFeedbackTopicName() {
-        return ActionClient.getFeedbackTopicName(actionName);
-    }
-
-    final String getStatusTopicName() {
-        return ActionClient.getStatusTopicName(actionName);
-    }
-
-    final String getGoalTopicName() {
-        return ActionClient.getGoalTopicName(actionName);
-    }
-
-    final String getCancelTopicName() {
-        return ActionClient.getCancelTopicName(actionName);
-    }
-
-
-    static final String getResultTopicName(final String actionName) {
-        return actionName + "/result";
-    }
-
-    private static final String getFeedbackTopicName(final String actionName) {
-        return actionName + "/feedback";
-    }
-
-    private static final String getStatusTopicName(final String actionName) {
-        return actionName + "/status";
-    }
-
-    private static final String getGoalTopicName(final String actionName) {
-        return actionName + "/goal";
-    }
-
-    private static final String getCancelTopicName(final String actionName) {
-        return actionName + "/cancel";
-    }
-
     /**
      * Unsubscribe from the server topics.
      */
@@ -800,9 +764,9 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         final boolean result = this.statusSubscriberFlagReception
                 && this.goalPublisher.hasSubscribers()
                 && this.cancelPublisher.hasSubscribers()
-                && this.isTopicPublished(this.getFeedbackTopicName(), masterStateClientSupplier.get())
+                && this.isTopicPublished(this.actionTopics.getFeedbackTopicName(), masterStateClientSupplier.get())
 //                && this.isTopicPublished(this.serverFeedbackSubscriber.getTopicName().toString());
-                && this.isTopicPublished(this.getResultTopicName(), masterStateClientSupplier.get());
+                && this.isTopicPublished(this.actionTopics.getResultTopicName(), masterStateClientSupplier.get());
 
         return result;
     }
