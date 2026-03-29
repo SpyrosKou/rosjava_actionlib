@@ -1,6 +1,7 @@
 devel/
 build/
 .gradle/
+.gradle-user/
 *.*~
 src/CMakeLists.txt
 .catkin_workspace
