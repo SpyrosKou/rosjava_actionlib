@@ -16,6 +16,10 @@ Unreleased
   while also exposing static helper methods for one-off lookups.
 - Added `getActionTopics()` to both client and server and deprecated the older
   `ActionServer` topic getter methods in favor of the bundled topic API.
+- Removed legacy catkin-era packaging and stale launch-demo artifacts
+  (`package.xml`, `CMakeLists.txt`, `buildscript.gradle`, and the old
+  `launch/` demos) so the repository now matches its Gradle-only build and
+  distribution model.
 
 2026.03.29
 ----------
