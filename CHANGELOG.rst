@@ -11,7 +11,11 @@ A sort summary of upstream is also included for reference.
 Unreleased
 ----------
 
-- No unreleased changes.
+- Added immutable `ActionLibTopics` bundles for `ActionClient` and
+  `ActionServer`, caching the derived actionlib topic names once per action
+  while also exposing static helper methods for one-off lookups.
+- Added `getActionTopics()` to both client and server and deprecated the older
+  `ActionServer` topic getter methods in favor of the bundled topic API.
 
 2026.03.29
 ----------
