@@ -4,7 +4,7 @@ plugins {
     id 'idea'
 }
 group 'com.github.rosjava'
-version = '2026.03.29.02'
+version = '2026.04.17'
 description = 'A pure java version of actionlib'
 sourceCompatibility = JavaVersion.VERSION_21
 
@@ -37,7 +37,7 @@ tasks.withType(Javadoc) {
 dependencies {
 
     implementation group: 'org.ros.rosjava_bootstrap', name: 'message_generation', version: '0.3.8'
-    implementation 'org.ros.rosjava_core:rosjava:0.4.1.1'
+    implementation 'org.ros.rosjava_core:rosjava:0.4.1.2'
 
     api 'org.ros.rosjava_messages:actionlib_msgs:1.13.0'
     api 'org.ros.rosjava_messages:actionlib:1.13.2'
@@ -49,17 +49,17 @@ dependencies {
 
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
     implementation 'org.apache.commons:commons-lang3:3.18.0'
-    implementation 'org.apache.commons:commons-collections4:4.4'
-    implementation 'org.apache.commons:commons-configuration2:2.8.0'
+    implementation 'org.apache.commons:commons-collections4:4.5.0'
+    implementation 'org.apache.commons:commons-configuration2:2.14.0'
 
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.ros.rosjava_messages:actionlib_tutorials:0.1.10'
     testImplementation 'org.ros.rosjava_messages:turtle_actionlib:0.1.10'
-    testImplementation 'org.apache.camel:camel-test:3.22.1'
+    testImplementation 'org.apache.camel:camel-test:3.22.4'
     testImplementation 'org.slf4j:slf4j-api:1.7.30'
     testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.25.3'
-    testImplementation 'org.apache.logging.log4j:log4j-core:2.25.3'
+    testImplementation 'org.apache.logging.log4j:log4j-core:2.25.4'
 
 
 }
