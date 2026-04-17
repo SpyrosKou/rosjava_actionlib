@@ -6,7 +6,6 @@ plugins {
 group 'com.github.rosjava'
 version = '2026.04.17'
 description = 'A pure java version of actionlib'
-sourceCompatibility = JavaVersion.VERSION_21
 
 repositories {
     mavenLocal()
