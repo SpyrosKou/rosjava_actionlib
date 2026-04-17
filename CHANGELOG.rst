@@ -21,6 +21,13 @@ Unreleased
   `launch/` demos) so the repository now matches its Gradle-only build and
   distribution model.
 
+
+2026.04.17
+----------
+- Updated dependencies to improve security, reliability, and long-term maintainability
+- Bump gradle-version to 9.4.1
+- Add github workflows
+
 2026.03.29
 ----------
 
