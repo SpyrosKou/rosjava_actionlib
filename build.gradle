@@ -43,7 +43,7 @@ dependencies {
     api 'org.ros.rosjava_messages:std_msgs:0.5.13'
 
 
-    implementation 'com.google.guava:guava:33.0.0-jre'
+    implementation 'com.google.guava:guava:33.5.0-jre'
     compileOnly 'org.slf4j:slf4j-api:1.7.30'
 
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
