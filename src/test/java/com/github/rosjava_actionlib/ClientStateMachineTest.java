@@ -16,7 +16,7 @@
  */
 package com.github.rosjava_actionlib;
 
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -34,8 +34,8 @@ public class ClientStateMachineTest {
     private ClientStateMachine clientStateMachine;
     private static final ClientState INITIAL_CLIENT_STATE=ClientState.NO_GOAL;
     // Executes before each test.
-    @Before
-    public void setUp() {
+    @BeforeEach
+    public void beforeEach() {
         clientStateMachine = new ClientStateMachine(ClientState.NO_GOAL);
     }
 

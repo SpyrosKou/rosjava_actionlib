@@ -19,9 +19,9 @@ import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.camel.test.AvailablePortFinder;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,8 +68,8 @@ abstract class BaseTest {
         }
     }
 
-    @Before
-    public void before() {
+    @BeforeEach
+    public void beforeEach() {
         try {
             if (!testProperties.useExternalRosMaster()) {
                 this.rosMasterUriPort = AvailablePortFinder.getNextAvailable();
@@ -91,8 +91,8 @@ abstract class BaseTest {
     }
 
 
-    @After
-    public void after() {
+    @AfterEach
+    public void afterEach() {
         try {
             this.afterCustom(this.rosExecutor);
         } catch (final Exception e) {
