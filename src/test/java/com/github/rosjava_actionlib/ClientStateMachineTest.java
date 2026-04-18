@@ -23,8 +23,7 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
-import static org.junit.Assert.*;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 /**
@@ -32,8 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
  */
 public class ClientStateMachineTest {
     private ClientStateMachine clientStateMachine;
-    private static final ClientState INITIAL_CLIENT_STATE=ClientState.NO_GOAL;
-    // Executes before each test.
+    private static final ClientState INITIAL_CLIENT_STATE = ClientState.NO_GOAL;
+
     @BeforeEach
     public void beforeEach() {
         clientStateMachine = new ClientStateMachine(ClientState.NO_GOAL);
@@ -97,15 +96,15 @@ public class ClientStateMachineTest {
 
     private void checkCancelOnInitialCancellableState(ClientState initialState) {
         clientStateMachine.setState(initialState);
-        assertTrue("Failed test on initial state " + initialState, clientStateMachine.cancel());
-        assertEquals("Failed test on initial state " + initialState, ClientState.WAITING_FOR_CANCEL_ACK, clientStateMachine.getState());
+        assertTrue(clientStateMachine.cancel(), "Failed test on initial state " + initialState);
+        assertEquals(ClientState.WAITING_FOR_CANCEL_ACK, clientStateMachine.getState(), "Failed test on initial state " + initialState);
     }
 
 
     private void checkCancelOnInitialNonCancellableState(ClientState initialState) {
         clientStateMachine.setState(initialState);
-        assertFalse("Failed test on initial state " + initialState, clientStateMachine.cancel());
-        assertEquals("Failed test on initial state " + initialState, initialState, clientStateMachine.getState());
+        assertFalse(clientStateMachine.cancel(), "Failed test on initial state " + initialState);
+        assertEquals(initialState, clientStateMachine.getState(), "Failed test on initial state " + initialState);
     }
 
     @Test
@@ -132,17 +131,17 @@ public class ClientStateMachineTest {
     private void checkResultReceivedWhileNotWaitingForResult(ClientState state) {
         clientStateMachine.setState(state);
         clientStateMachine.resultReceived();
-        assertEquals("Failed test on initial state " + state, ClientState.NO_GOAL, clientStateMachine.getState());
+        assertEquals(ClientState.NO_GOAL, clientStateMachine.getState(), "Failed test on initial state " + state);
     }
 
     @Test
-    public void testGetTrasition() {
+    public void testGetTransition() {
 
-        LinkedList<ClientState>  expected = new LinkedList<>(Arrays.asList(ClientState.PENDING));
-        checkGetTransition(ClientState.WAITING_FOR_GOAL_ACK,actionlib_msgs.GoalStatus.PENDING, expected);
+        LinkedList<ClientState> expected = new LinkedList<>(Arrays.asList(ClientState.PENDING));
+        checkGetTransition(ClientState.WAITING_FOR_GOAL_ACK, actionlib_msgs.GoalStatus.PENDING, expected);
 
-        expected = new LinkedList<>(Arrays.asList(ClientState.PENDING,ClientState.WAITING_FOR_RESULT));
-        checkGetTransition(ClientState.WAITING_FOR_GOAL_ACK,actionlib_msgs.GoalStatus.REJECTED, expected);
+        expected = new LinkedList<>(Arrays.asList(ClientState.PENDING, ClientState.WAITING_FOR_RESULT));
+        checkGetTransition(ClientState.WAITING_FOR_GOAL_ACK, actionlib_msgs.GoalStatus.REJECTED, expected);
     }
 
     private final void checkGetTransition(ClientState initialState, int goalStatus, List<ClientState> expected) {

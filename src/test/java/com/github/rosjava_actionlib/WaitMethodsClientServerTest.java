@@ -23,8 +23,8 @@ import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+
 import org.junit.jupiter.api.AfterEach;
-import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,7 +64,7 @@ public class WaitMethodsClientServerTest {
                 this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
                 this.rosCore.start();
                 final boolean rosCoreStarted = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-                Assert.assertTrue("Ros core not connected", rosCoreStarted);
+                Assertions.assertTrue(rosCoreStarted, "Ros core not connected");
 
             }
             this.fibonacciActionLibServer = new FibonacciActionLibServer();
@@ -72,17 +72,17 @@ public class WaitMethodsClientServerTest {
 
             this.rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             final boolean serverConnected = this.fibonacciActionLibServer.waitForStart(5, TimeUnit.SECONDS);
-            Assert.assertTrue("Server Could not connect", serverConnected);
+            Assertions.assertTrue(serverConnected, "Server Could not connect");
             this.futureBasedClientNode = new FutureBasedClientNode();
             this.rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), ROS_MASTER_URI);
             final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(5, TimeUnit.SECONDS);
 
-            Assert.assertTrue("ClientNotStarted", clientStarted);
+            Assertions.assertTrue(clientStarted, "ClientNotStarted");
 
 
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
-            Assert.fail(ExceptionUtils.getStackTrace(er3));
+            Assertions.fail(ExceptionUtils.getStackTrace(er3));
 
         }
 
@@ -98,26 +98,26 @@ public class WaitMethodsClientServerTest {
             try {
                 final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
                 final boolean cancel = resultFuture.cancel(true);
-                Assert.assertTrue("Could not cancel", cancel);
+                Assertions.assertTrue(cancel, "Could not cancel");
 
                 try {
                     final FibonacciActionResult fibonacciActionResult = resultFuture.get(10, TimeUnit.SECONDS);
-                    Assert.assertNotNull("result should not be null", fibonacciActionResult);
+                    Assertions.assertNotNull(fibonacciActionResult, "result should not be null");
                     final Set<ClientState> expectedValues = EnumSet.of(ClientState.PENDING, ClientState.RECALLING, ClientState.WAITING_FOR_CANCEL_ACK, ClientState.DONE);
                     final ClientState clientState = resultFuture.getCurrentState();
-                    Assert.assertTrue("Checking state, failed. Managed to receive result before canceling. Is resultOk:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.equals(fibonacciActionResult.getResult().getSequence()) + " expeced size:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.length + " current size:" + fibonacciActionResult.getResult().getSequence().length, expectedValues.contains(clientState));
-                    Assert.assertFalse("Results should normally NOT be correct", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, fibonacciActionResult.getResult().getSequence()));
+                    Assertions.assertTrue(expectedValues.contains(clientState), "Checking state, failed. Managed to receive result before canceling. Is resultOk:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.equals(fibonacciActionResult.getResult().getSequence()) + " expeced size:" + TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT.length + " current size:" + fibonacciActionResult.getResult().getSequence().length);
+                    Assertions.assertFalse(Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, fibonacciActionResult.getResult().getSequence()), "Results should normally NOT be correct");
                 } catch (final Exception exception) {
                     LOGGER.error(ExceptionUtils.getStackTrace(exception));
-                    Assert.fail(ExceptionUtils.getStackTrace(exception));
+                    Assertions.fail(ExceptionUtils.getStackTrace(exception));
                 }
 
                 final ClientState currentClientState = resultFuture.getCurrentState();
-                Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.DONE, currentClientState);
-                LOGGER.trace("ClientState:" + currentClientState);
+                Assertions.assertEquals(ClientState.DONE, currentClientState, "Not Cancelled, current state:" + currentClientState);
+                LOGGER.trace("ClientState:{}", currentClientState);
 
             } catch (final Exception exception) {
-                Assert.fail(ExceptionUtils.getStackTrace(exception));
+                Assertions.fail(ExceptionUtils.getStackTrace(exception));
             }
 
 
@@ -138,17 +138,17 @@ public class WaitMethodsClientServerTest {
 
 
             final FibonacciActionResult fibonacciActionResult = resultFuture.get(10, TimeUnit.SECONDS);
-            Assert.assertNotNull("result should not be null", fibonacciActionResult);
+            Assertions.assertNotNull(fibonacciActionResult, "result should not be null");
 
-            Assert.assertTrue("Results Error", Arrays.equals(TestInputs.TEST_CORRECT_OUTPUT, fibonacciActionResult.getResult().getSequence()));
+            Assertions.assertTrue(Arrays.equals(TestInputs.TEST_CORRECT_OUTPUT, fibonacciActionResult.getResult().getSequence()), "Results Error");
 
 
             final ClientState currentClientState = resultFuture.getCurrentState();
-            Assert.assertEquals("Not Cancelled, current state:" + currentClientState, ClientState.DONE, currentClientState);
+            Assertions.assertEquals(ClientState.DONE, currentClientState, "Not Cancelled, current state:" + currentClientState);
             LOGGER.trace("ClientState:" + currentClientState);
 
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
 
 

@@ -21,7 +21,6 @@ import actionlib_msgs.GoalStatusArray;
 import actionlib_tutorials.FibonacciActionFeedback;
 import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
-import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.ros.internal.message.DefaultMessageFactory;
@@ -46,20 +45,20 @@ public final class ActionServerTest {
 
     @Test
     public final void terminalStatusesAreMarkedForEviction() {
-        Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.REJECTED));
-        Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.RECALLED));
-        Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.PREEMPTED));
-        Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.SUCCEEDED));
-        Assert.assertTrue(ActionServer.isTerminalStatus(GoalStatus.ABORTED));
+        Assertions.assertTrue(ActionServer.isTerminalStatus(GoalStatus.REJECTED));
+        Assertions.assertTrue(ActionServer.isTerminalStatus(GoalStatus.RECALLED));
+        Assertions.assertTrue(ActionServer.isTerminalStatus(GoalStatus.PREEMPTED));
+        Assertions.assertTrue(ActionServer.isTerminalStatus(GoalStatus.SUCCEEDED));
+        Assertions.assertTrue(ActionServer.isTerminalStatus(GoalStatus.ABORTED));
     }
 
     @Test
     public final void nonTerminalStatusesAreNotMarkedForEviction() {
-        Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.PENDING));
-        Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.ACTIVE));
-        Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.RECALLING));
-        Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.PREEMPTING));
-        Assert.assertFalse(ActionServer.isTerminalStatus(GoalStatus.LOST));
+        Assertions.assertFalse(ActionServer.isTerminalStatus(GoalStatus.PENDING));
+        Assertions.assertFalse(ActionServer.isTerminalStatus(GoalStatus.ACTIVE));
+        Assertions.assertFalse(ActionServer.isTerminalStatus(GoalStatus.RECALLING));
+        Assertions.assertFalse(ActionServer.isTerminalStatus(GoalStatus.PREEMPTING));
+        Assertions.assertFalse(ActionServer.isTerminalStatus(GoalStatus.LOST));
     }
 
     @Test
@@ -69,10 +68,10 @@ public final class ActionServerTest {
 
             harness.actionServer.gotGoal(goal);
 
-            Assert.assertEquals(1, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(1, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
-            Assert.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
+            Assertions.assertEquals(1, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(1, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
+            Assertions.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
         }
     }
 
@@ -84,11 +83,11 @@ public final class ActionServerTest {
             harness.actionServer.gotGoal(goal);
             harness.actionServer.gotCancel(harness.newGoalId(goal.getGoalId().getId(), goal.getGoalId().getStamp()));
 
-            Assert.assertEquals(1, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(1, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(1, harness.listener.cancelReceivedCount.get());
-            Assert.assertEquals(GoalStatus.PREEMPTING, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
-            Assert.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
+            Assertions.assertEquals(1, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(1, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(1, harness.listener.cancelReceivedCount.get());
+            Assertions.assertEquals(GoalStatus.PREEMPTING, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
+            Assertions.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
         }
     }
 
@@ -101,16 +100,16 @@ public final class ActionServerTest {
             harness.actionServer.gotCancel(harness.newGoalId(goalId, new Time()));
             harness.actionServer.gotGoal(goal);
 
-            Assert.assertEquals(0, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(0, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(1, harness.listener.cancelReceivedCount.get());
-            Assert.assertEquals(GoalStatus.RECALLED, harness.actionServer.getGoalStatus(goalId));
+            Assertions.assertEquals(0, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(0, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(1, harness.listener.cancelReceivedCount.get());
+            Assertions.assertEquals(GoalStatus.RECALLED, harness.actionServer.getGoalStatus(goalId));
 
             final FibonacciActionResult result = harness.resultPublisher.getLastPublishedMessage();
-            Assert.assertNotNull(result);
-            Assert.assertEquals(GoalStatus.RECALLED, result.getStatus().getStatus());
-            Assert.assertEquals(goalId, result.getStatus().getGoalId().getId());
-            Assert.assertEquals(goal.getGoalId().getStamp(), result.getStatus().getGoalId().getStamp());
+            Assertions.assertNotNull(result);
+            Assertions.assertEquals(GoalStatus.RECALLED, result.getStatus().getStatus());
+            Assertions.assertEquals(goalId, result.getStatus().getGoalId().getId());
+            Assertions.assertEquals(goal.getGoalId().getStamp(), result.getStatus().getGoalId().getStamp());
         }
     }
 
@@ -123,13 +122,13 @@ public final class ActionServerTest {
             harness.actionServer.gotCancel(harness.newGoalId("", cancelStamp));
             harness.actionServer.gotGoal(goal);
 
-            Assert.assertEquals(0, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(0, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(GoalStatus.RECALLED, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
+            Assertions.assertEquals(0, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(0, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(GoalStatus.RECALLED, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
 
             final FibonacciActionResult result = harness.resultPublisher.getLastPublishedMessage();
-            Assert.assertNotNull(result);
-            Assert.assertEquals(GoalStatus.RECALLED, result.getStatus().getStatus());
+            Assertions.assertNotNull(result);
+            Assertions.assertEquals(GoalStatus.RECALLED, result.getStatus().getStatus());
         }
     }
 
@@ -141,10 +140,10 @@ public final class ActionServerTest {
 
             harness.actionServer.gotGoal(goal);
 
-            Assert.assertEquals(1, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(1, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
-            Assert.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
+            Assertions.assertEquals(1, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(1, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goal.getGoalId().getId()));
+            Assertions.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
         }
     }
 
@@ -158,17 +157,17 @@ public final class ActionServerTest {
             harness.actionServer.gotGoal(secondGoal);
             harness.actionServer.gotCancel(harness.newGoalId("", new Time()));
 
-            Assert.assertEquals(GoalStatus.PREEMPTING, harness.actionServer.getGoalStatus(firstGoal.getGoalId().getId()));
-            Assert.assertEquals(GoalStatus.PREEMPTING, harness.actionServer.getGoalStatus(secondGoal.getGoalId().getId()));
+            Assertions.assertEquals(GoalStatus.PREEMPTING, harness.actionServer.getGoalStatus(firstGoal.getGoalId().getId()));
+            Assertions.assertEquals(GoalStatus.PREEMPTING, harness.actionServer.getGoalStatus(secondGoal.getGoalId().getId()));
 
             final FibonacciActionGoal futureGoal = harness.newGoal("future-goal", new Time(82, 0), 5);
             harness.actionServer.gotGoal(futureGoal);
 
-            Assert.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(futureGoal.getGoalId().getId()));
-            Assert.assertEquals(3, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(3, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(1, harness.listener.cancelReceivedCount.get());
-            Assert.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
+            Assertions.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(futureGoal.getGoalId().getId()));
+            Assertions.assertEquals(3, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(3, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(1, harness.listener.cancelReceivedCount.get());
+            Assertions.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
         }
     }
 
@@ -178,13 +177,13 @@ public final class ActionServerTest {
             final String goalId = "missing-goal";
 
             harness.actionServer.gotCancel(harness.newGoalId(goalId, new Time()));
-            Assert.assertEquals(GoalStatus.RECALLING, harness.actionServer.getGoalStatus(goalId));
+            Assertions.assertEquals(GoalStatus.RECALLING, harness.actionServer.getGoalStatus(goalId));
 
             harness.actionServer.sendStatusTick();
             Thread.sleep(20);
             harness.actionServer.sendStatusTick();
 
-            Assert.assertEquals(-100, harness.actionServer.getGoalStatus(goalId));
+            Assertions.assertEquals(-100, harness.actionServer.getGoalStatus(goalId));
         }
     }
 
@@ -201,10 +200,10 @@ public final class ActionServerTest {
 
             harness.actionServer.gotGoal(goal);
 
-            Assert.assertEquals(1, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(1, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goalId));
-            Assert.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
+            Assertions.assertEquals(1, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(1, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goalId));
+            Assertions.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
         }
     }
 
@@ -222,17 +221,17 @@ public final class ActionServerTest {
             harness.actionServer.gotGoal(duplicateGoal);
             harness.actionServer.sendStatusTick();
 
-            Assert.assertEquals(1, harness.listener.goalReceivedCount.get());
-            Assert.assertEquals(1, harness.listener.acceptGoalCount.get());
-            Assert.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goalId));
-            Assert.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
+            Assertions.assertEquals(1, harness.listener.goalReceivedCount.get());
+            Assertions.assertEquals(1, harness.listener.acceptGoalCount.get());
+            Assertions.assertEquals(GoalStatus.ACTIVE, harness.actionServer.getGoalStatus(goalId));
+            Assertions.assertTrue(harness.resultPublisher.publishedMessages.isEmpty());
 
             final GoalStatusArray latestStatus = harness.statusPublisher.getLastPublishedMessage();
-            Assert.assertNotNull(latestStatus);
-            Assert.assertEquals(1, latestStatus.getStatusList().size());
+            Assertions.assertNotNull(latestStatus);
+            Assertions.assertEquals(1, latestStatus.getStatusList().size());
             final GoalStatus trackedStatus = latestStatus.getStatusList().get(0);
-            Assert.assertEquals(goalId, trackedStatus.getGoalId().getId());
-            Assert.assertEquals(originalStamp, trackedStatus.getGoalId().getStamp());
+            Assertions.assertEquals(goalId, trackedStatus.getGoalId().getId());
+            Assertions.assertEquals(originalStamp, trackedStatus.getGoalId().getStamp());
         }
     }
 

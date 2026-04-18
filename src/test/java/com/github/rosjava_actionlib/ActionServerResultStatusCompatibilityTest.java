@@ -22,8 +22,6 @@ import actionlib_tutorials.FibonacciActionResult;
 import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -59,28 +57,28 @@ public final class ActionServerResultStatusCompatibilityTest extends BaseTest {
 
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
                     this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
 
             final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Null Result", result);
-            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
-            Assert.assertEquals("Result should inherit tracked SUCCEEDED status", GoalStatus.SUCCEEDED, result.getStatus().getStatus());
+            Assertions.assertNotNull(result, "Null Result");
+            Assertions.assertTrue(Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT), "Result was wrong");
+            Assertions.assertEquals(GoalStatus.SUCCEEDED, result.getStatus().getStatus(), "Result should inherit tracked SUCCEEDED status");
 
             final boolean statusReceived = terminalStatusReceived.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Expected a terminal /status publication after the result", statusReceived);
-            Assert.assertEquals("Expected SUCCEEDED terminal status", Byte.valueOf(GoalStatus.SUCCEEDED), terminalStatus.get());
+            Assertions.assertTrue(statusReceived, "Expected a terminal /status publication after the result");
+            Assertions.assertEquals(Byte.valueOf(GoalStatus.SUCCEEDED), terminalStatus.get(), "Expected SUCCEEDED terminal status");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         try {
-            Assume.assumeNotNull(rosExecutor);
+            Assumptions.assumeTrue(rosExecutor != null);
             Assumptions.assumeTrue(rosMasterUri.isPresent());
             final Stopwatch stopwatch = Stopwatch.createStarted();
             this.fibonacciActionLibServer = new FibonacciActionLibServer(false);
@@ -88,13 +86,13 @@ public final class ActionServerResultStatusCompatibilityTest extends BaseTest {
 
             rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
             final boolean serverStarted = this.fibonacciActionLibServer.waitForStart(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Server Could not connect", serverStarted);
+            Assertions.assertTrue(serverStarted, "Server Could not connect");
 
             rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
             final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assumptions.assumeTrue(clientStarted,()->"Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT + " " + TIME_UNIT);
+            Assumptions.assumeTrue(clientStarted, () -> "Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT + " " + TIME_UNIT);
         } catch (final Exception exception) {
-            Assumptions.assumeTrue(false,ExceptionUtils.getStackTrace(exception));
+            Assumptions.assumeTrue(false, ExceptionUtils.getStackTrace(exception));
         }
     }
 

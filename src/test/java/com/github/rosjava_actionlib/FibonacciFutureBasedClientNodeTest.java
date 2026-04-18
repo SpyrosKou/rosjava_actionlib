@@ -24,8 +24,6 @@ import actionlib_tutorials.FibonacciActionResult;
 import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -57,7 +55,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     private FibonacciActionLibServer fibonacciActionLibServer = null;
 
     private final static long TIMEOUT = 60;
-    private final static TimeUnit TIME_UNIT= TimeUnit.SECONDS;
+    private final static TimeUnit TIME_UNIT = TimeUnit.SECONDS;
 
     /**
      * Also demonstrates status of Client by printing client status when it changes
@@ -69,12 +67,12 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         for (int i = 0; i < reps; i++) {
             try {
                 final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-                Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+                Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
             } catch (final Exception exception) {
-                Assert.fail("Failed with an exception:"+ExceptionUtils.getStackTrace(exception));
+                Assertions.fail("Failed with an exception:" + ExceptionUtils.getStackTrace(exception));
             }
         }
-        Assert.assertTrue("Takes too much time. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, stopwatch.elapsed(TIME_UNIT) < TIMEOUT);
+        Assertions.assertTrue(stopwatch.elapsed(TIME_UNIT) < TIMEOUT, "Takes too much time. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
     }
 
     /**
@@ -86,17 +84,17 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         try {
 
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
 
             final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, stopwatch.elapsed(TIME_UNIT) <= TIMEOUT);
-            Assert.assertNotNull("Null Result", result);
-            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            Assertions.assertTrue(stopwatch.elapsed(TIME_UNIT) <= TIMEOUT, "Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
+            Assertions.assertNotNull(result, "Null Result");
+            Assertions.assertTrue(Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT), "Result was wrong");
 
 
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
             LOGGER.error(ExceptionUtils.getStackTrace(exception));
         }
     }
@@ -108,24 +106,27 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             for (int i = 0; i < repetitions; i++) {
                 final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
                         this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
 
                 final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-                Assert.assertNotNull("Null Result on repetition:" + i, result);
-                Assert.assertTrue("Result was wrong on repetition:" + i,
-                        Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
-                Assert.assertEquals("Client should be idle after repetition:" + i,
-                        ClientState.DONE, resultFuture.getCurrentState());
+                Assertions.assertNotNull(result, "Null Result on repetition:" + i);
+                Assertions.assertTrue(
+                        Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT),
+                        "Result was wrong on repetition:" + i);
+                Assertions.assertEquals(
+                        ClientState.DONE, resultFuture.getCurrentState(),
+                        "Client should be idle after repetition:" + i);
             }
 
-            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT,
-                    stopwatch.elapsed(TIME_UNIT) <= TIMEOUT);
+            Assertions.assertTrue(
+                    stopwatch.elapsed(TIME_UNIT) <= TIMEOUT,
+                    "Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -147,21 +148,21 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
                     this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
 
             final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Null Result", result);
-            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            Assertions.assertNotNull(result, "Null Result");
+            Assertions.assertTrue(Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT), "Result was wrong");
 
             final boolean statusReceived =
                     terminalStatusReceived.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Expected a terminal /status publication after the result", statusReceived);
-            Assert.assertEquals("Expected SUCCEEDED terminal status", Byte.valueOf(GoalStatus.SUCCEEDED), terminalStatus.get());
+            Assertions.assertTrue(statusReceived, "Expected a terminal /status publication after the result");
+            Assertions.assertEquals(Byte.valueOf(GoalStatus.SUCCEEDED), terminalStatus.get(), "Expected SUCCEEDED terminal status");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -175,14 +176,14 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
         try {
             final boolean resultReceivedOK = resultReceived.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Result OK", resultReceivedOK);
-            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, stopwatch.elapsed(TIME_UNIT) <= TIMEOUT);
+            Assertions.assertTrue(resultReceivedOK, "Result OK");
+            Assertions.assertTrue(stopwatch.elapsed(TIME_UNIT) <= TIMEOUT, "Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final FibonacciActionResult fibonacciActionResult = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Result OK", Arrays.equals(fibonacciActionResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
-            Assert.assertTrue("Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, stopwatch.elapsed(TIME_UNIT) <= TIMEOUT);
+            Assertions.assertTrue(Arrays.equals(fibonacciActionResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT), "Result OK");
+            Assertions.assertTrue(stopwatch.elapsed(TIME_UNIT) <= TIMEOUT, "Timed out. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
 
     }
@@ -192,18 +193,19 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
                     this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
 
             final boolean cancelSent = this.futureBasedClientNode.getActionClient().cancelGoal("unrelated-goal-id");
 
-            Assert.assertTrue("Cancelling a different GoalID should still publish the cancel request", cancelSent);
-            Assert.assertNotEquals("Cancelling a different GoalID should not change the current goal state",
-                    ClientState.WAITING_FOR_CANCEL_ACK, resultFuture.getCurrentState());
+            Assertions.assertTrue(cancelSent, "Cancelling a different GoalID should still publish the cancel request");
+            Assertions.assertNotEquals(
+                    ClientState.WAITING_FOR_CANCEL_ACK, resultFuture.getCurrentState(),
+                    "Cancelling a different GoalID should not change the current goal state");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -231,28 +233,30 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> cancelledGoalFuture =
                     this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
             final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("The goal was never observed as tracked before cancelGoal", trackedGoalObserved);
+            Assertions.assertTrue(trackedGoalObserved, "The goal was never observed as tracked before cancelGoal");
 
             final String goalId = trackedGoalId.get();
-            Assert.assertNotNull("Tracked goal ID should be captured before cancelGoal", goalId);
+            Assertions.assertNotNull(goalId, "Tracked goal ID should be captured before cancelGoal");
             final boolean cancelSent = this.futureBasedClientNode.getActionClient().cancelGoal(goalId);
-            Assert.assertTrue("Cancel-goal request was not published", cancelSent);
+            Assertions.assertTrue(cancelSent, "Cancel-goal request was not published");
 
             final FibonacciActionResult cancelledGoalResult =
                     cancelledGoalFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Cancelled result should not be null", cancelledGoalResult);
-            Assert.assertEquals("Cancel-goal should preempt the tracked goal",
-                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus());
-            Assert.assertFalse("Cancelled result should be incomplete",
-                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()));
-            Assert.assertEquals("Cancelled future should be terminal", ClientState.DONE, cancelledGoalFuture.getCurrentState());
+            Assertions.assertNotNull(cancelledGoalResult, "Cancelled result should not be null");
+            Assertions.assertEquals(
+                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus(),
+                    "Cancel-goal should preempt the tracked goal");
+            Assertions.assertFalse(
+                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()),
+                    "Cancelled result should be incomplete");
+            Assertions.assertEquals(ClientState.DONE, cancelledGoalFuture.getCurrentState(), "Cancelled future should be terminal");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -273,34 +277,37 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> cancelledGoalFuture =
                     this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
             final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("The goal was never observed as tracked before cancel-all", trackedGoalObserved);
+            Assertions.assertTrue(trackedGoalObserved, "The goal was never observed as tracked before cancel-all");
 
             final boolean cancelAllSent = this.futureBasedClientNode.getActionClient().cancelAll();
-            Assert.assertTrue("Cancel-all request was not published", cancelAllSent);
+            Assertions.assertTrue(cancelAllSent, "Cancel-all request was not published");
 
             final FibonacciActionResult cancelledGoalResult =
                     cancelledGoalFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Cancelled result should not be null", cancelledGoalResult);
-            Assert.assertEquals("Cancel-all should preempt the tracked goal",
-                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus());
-            Assert.assertFalse("Cancelled result should be incomplete",
-                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()));
-            Assert.assertEquals("Cancelled future should be terminal", ClientState.DONE, cancelledGoalFuture.getCurrentState());
+            Assertions.assertNotNull(cancelledGoalResult, "Cancelled result should not be null");
+            Assertions.assertEquals(
+                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus(),
+                    "Cancel-all should preempt the tracked goal");
+            Assertions.assertFalse(
+                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()),
+                    "Cancelled result should be incomplete");
+            Assertions.assertEquals(ClientState.DONE, cancelledGoalFuture.getCurrentState(), "Cancelled future should be terminal");
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> futureGoal =
                     this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
             final FibonacciActionResult futureGoalResult =
                     futureGoal.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Future result should not be null", futureGoalResult);
-            Assert.assertTrue("Future goal should still succeed after cancel-all",
-                    Arrays.equals(futureGoalResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            Assertions.assertNotNull(futureGoalResult, "Future result should not be null");
+            Assertions.assertTrue(
+                    Arrays.equals(futureGoalResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT),
+                    "Future goal should still succeed after cancel-all");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -327,36 +334,39 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> cancelledGoalFuture =
                     this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
             final boolean trackedGoalObserved = goalTracked.await(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("The goal was never observed as tracked before cancel-before", trackedGoalObserved);
+            Assertions.assertTrue(trackedGoalObserved, "The goal was never observed as tracked before cancel-before");
 
             final Time cancelStamp = trackedGoalStamp.get();
-            Assert.assertNotNull("Tracked goal stamp should be captured before cancel-before", cancelStamp);
+            Assertions.assertNotNull(cancelStamp, "Tracked goal stamp should be captured before cancel-before");
             final boolean cancelBeforeSent = this.futureBasedClientNode.getActionClient().cancelBefore(cancelStamp);
-            Assert.assertTrue("Cancel-before request was not published", cancelBeforeSent);
+            Assertions.assertTrue(cancelBeforeSent, "Cancel-before request was not published");
 
             final FibonacciActionResult cancelledGoalResult =
                     cancelledGoalFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Cancelled result should not be null", cancelledGoalResult);
-            Assert.assertEquals("Cancel-before should preempt the tracked goal",
-                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus());
-            Assert.assertFalse("Cancelled result should be incomplete",
-                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()));
-            Assert.assertEquals("Cancelled future should be terminal", ClientState.DONE, cancelledGoalFuture.getCurrentState());
+            Assertions.assertNotNull(cancelledGoalResult, "Cancelled result should not be null");
+            Assertions.assertEquals(
+                    GoalStatus.PREEMPTED, cancelledGoalResult.getStatus().getStatus(),
+                    "Cancel-before should preempt the tracked goal");
+            Assertions.assertFalse(
+                    Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, cancelledGoalResult.getResult().getSequence()),
+                    "Cancelled result should be incomplete");
+            Assertions.assertEquals(ClientState.DONE, cancelledGoalFuture.getCurrentState(), "Cancelled future should be terminal");
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> futureGoal =
                     this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
             final FibonacciActionResult futureGoalResult =
                     futureGoal.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Future result should not be null", futureGoalResult);
-            Assert.assertTrue("Future goal should still succeed after cancel-before",
-                    Arrays.equals(futureGoalResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            Assertions.assertNotNull(futureGoalResult, "Future result should not be null");
+            Assertions.assertTrue(
+                    Arrays.equals(futureGoalResult.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT),
+                    "Future goal should still succeed after cancel-before");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -370,21 +380,22 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
         final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = this.futureBasedClientNode.invoke(TestInputs.HUGE_INPUT);
         try {
             final boolean cancel = resultFuture.cancel(true);
-            Assert.assertTrue("Could not cancel", cancel);
+            Assertions.assertTrue(cancel, "Could not cancel");
             final boolean resultReceivedOK = resultReceived.await(3 - stopwatch.elapsed(TimeUnit.SECONDS), TimeUnit.SECONDS);
-            Assume.assumeTrue("Managed to receive result before canceling", resultReceivedOK);
+            Assumptions.assumeTrue(resultReceivedOK, "Managed to receive result before canceling");
 
             final ClientState currentClientState = resultFuture.getCurrentState();
-            Assert.assertTrue("Not Cancelled, current state:" + currentClientState
-                    , ClientState.DONE.equals(currentClientState)
+            Assertions.assertTrue(
+                    ClientState.DONE.equals(currentClientState)
                             || ClientState.NO_GOAL.equals(currentClientState)
                             || ClientState.RECALLING.equals(currentClientState)
                             || ClientState.WAITING_FOR_CANCEL_ACK.equals(currentClientState)
-                            || ClientState.PREEMPTING.equals(currentClientState)
+                            || ClientState.PREEMPTING.equals(currentClientState),
+                    "Not Cancelled, current state:" + currentClientState
             );
 
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
 
     }
@@ -402,7 +413,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
             gotResult.setAccessible(true);
             gotResult.invoke(actionClient, resultMessage);
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
@@ -410,21 +421,21 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         try {
-        Assume.assumeNotNull(rosExecutor);
-        Assumptions.assumeTrue(rosMasterUri.isPresent());
-        final Stopwatch stopwatch = Stopwatch.createStarted();
-        this.fibonacciActionLibServer = new FibonacciActionLibServer();
-        this.futureBasedClientNode = new FutureBasedClientNode();
+            Assumptions.assumeTrue(rosExecutor != null);
+            Assumptions.assumeTrue(rosMasterUri.isPresent());
+            final Stopwatch stopwatch = Stopwatch.createStarted();
+            this.fibonacciActionLibServer = new FibonacciActionLibServer();
+            this.futureBasedClientNode = new FutureBasedClientNode();
 
-        rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
-        final boolean serverStarted = this.fibonacciActionLibServer.waitForStart(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-        Assert.assertTrue("Server Could not connect", serverStarted);
+            rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
+            final boolean serverStarted = this.fibonacciActionLibServer.waitForStart(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assertions.assertTrue(serverStarted, "Server Could not connect");
 
-        rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
-        final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-        Assumptions.assumeTrue(clientStarted,()->"Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT+" "+TIME_UNIT);
+            rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
+            final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
+            Assumptions.assumeTrue(clientStarted, () -> "Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT + " " + TIME_UNIT);
         } catch (final Exception exception) {
-            Assume.assumeNoException(exception);
+            Assumptions.assumeTrue(false, ExceptionUtils.getStackTrace(exception));
         }
     }
 

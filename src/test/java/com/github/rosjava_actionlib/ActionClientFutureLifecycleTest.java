@@ -21,8 +21,6 @@ import actionlib_tutorials.FibonacciActionGoal;
 import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -64,39 +62,39 @@ public class ActionClientFutureLifecycleTest extends BaseTest {
             final WeakReference<ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult>> weakReference =
                     new WeakReference<>(createdFuture);
 
-            Assert.assertEquals(initialResultListenerCount + 1, getListenerCount(actionClient, "callbackResultTargets"));
-            Assert.assertEquals(initialFeedbackListenerCount + 1, getListenerCount(actionClient, "callbackFeedbackTargets"));
+            Assertions.assertEquals(initialResultListenerCount + 1, getListenerCount(actionClient, "callbackResultTargets"));
+            Assertions.assertEquals(initialFeedbackListenerCount + 1, getListenerCount(actionClient, "callbackFeedbackTargets"));
 
             createdFuture = null;
             waitForGarbageCollection(weakReference);
 
-            Assert.assertNull("The future should be garbage collectable after user code drops it", weakReference.get());
-            Assert.assertEquals("Result listener registrations should be removed when the future is abandoned",
-                    initialResultListenerCount, getListenerCount(actionClient, "callbackResultTargets"));
-            Assert.assertEquals("Feedback listener registrations should be removed when the future is abandoned",
-                    initialFeedbackListenerCount, getListenerCount(actionClient, "callbackFeedbackTargets"));
+            Assertions.assertNull(weakReference.get(), "The future should be garbage collectable after user code drops it");
+            Assertions.assertEquals(initialResultListenerCount, getListenerCount(actionClient, "callbackResultTargets"),
+                    "Result listener registrations should be removed when the future is abandoned");
+            Assertions.assertEquals(initialFeedbackListenerCount, getListenerCount(actionClient, "callbackFeedbackTargets"),
+                    "Feedback listener registrations should be removed when the future is abandoned");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
     @Override
     void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         try {
-            Assume.assumeNotNull(rosExecutor);
+            Assumptions.assumeTrue(rosExecutor != null);
             Assumptions.assumeTrue(rosMasterUri.isPresent());
 
             this.neverCompletingActionLibServer = new NeverCompletingActionLibServer();
             this.futureBasedClientNode = new FutureBasedClientNode();
 
             rosExecutor.startNodeMain(this.neverCompletingActionLibServer, this.neverCompletingActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
-            Assert.assertTrue("Server could not connect", this.neverCompletingActionLibServer.waitForStart(TIMEOUT, TIME_UNIT));
+            Assertions.assertTrue(this.neverCompletingActionLibServer.waitForStart(TIMEOUT, TIME_UNIT), "Server could not connect");
 
             rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
             final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assume.assumeTrue("Client could not connect", clientStarted);
+            Assumptions.assumeTrue(clientStarted, "Client could not connect");
         } catch (final Exception exception) {
-            Assume.assumeNoException(exception);
+            Assumptions.assumeTrue(false, ExceptionUtils.getStackTrace(exception));
         }
     }
 

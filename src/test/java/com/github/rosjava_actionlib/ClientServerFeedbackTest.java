@@ -22,8 +22,11 @@ import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,19 +50,19 @@ public final class ClientServerFeedbackTest {
     private AsyncGoalRunnerActionLibServer asyncGoalRunnerActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
-    @Before
+    @BeforeEach
     public final void before() {
         try {
-            final boolean coreStartedOk ;
+            final boolean coreStartedOk;
             if (!USE_EXTERNAL_ROS_MASTER) {
                 this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
                 this.rosCore.start();
                 coreStartedOk = this.rosCore.awaitStart(testProperties.getRosCoreStartWaitMillis(), TimeUnit.MILLISECONDS);
-                Assert.assertTrue("Core not started", coreStartedOk);
-            }else{
+                Assertions.assertTrue(coreStartedOk, "Core not started");
+            } else {
                 coreStartedOk = true;
             }
-            Assert.assertTrue(USE_EXTERNAL_ROS_MASTER || coreStartedOk);
+            Assertions.assertTrue(USE_EXTERNAL_ROS_MASTER || coreStartedOk);
             this.asyncGoalRunnerActionLibServer = new AsyncGoalRunnerActionLibServer(false);
 
             this.actionLibClientFeedbackListenerNode = new ActionLibClientFeedbackListenerNode();
@@ -67,12 +70,12 @@ public final class ClientServerFeedbackTest {
             this.rosExecutor.startNodeMain(asyncGoalRunnerActionLibServer, asyncGoalRunnerActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.rosExecutor.startNodeMain(actionLibClientFeedbackListenerNode, actionLibClientFeedbackListenerNode.getDefaultNodeName().toString(), ROS_MASTER_URI);
             final boolean serverStarted = this.asyncGoalRunnerActionLibServer.waitForStart(10000, TimeUnit.SECONDS);
-            Assumptions.assumeTrue( serverStarted,"Could not connect");
+            Assumptions.assumeTrue(serverStarted, "Could not connect");
             final boolean clientStarted = this.actionLibClientFeedbackListenerNode.waitForStartAndConnection(10000, TimeUnit.SECONDS);
-            Assumptions.assumeTrue( serverStarted,"Could not connect");
+            Assumptions.assumeTrue(serverStarted, "Could not connect");
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
-            Assumptions.assumeTrue(false,()->ExceptionUtils.getStackTrace(er3));
+            Assumptions.assumeTrue(false, () -> ExceptionUtils.getStackTrace(er3));
         }
 
     }
@@ -87,20 +90,20 @@ public final class ClientServerFeedbackTest {
             LOGGER.trace("Starting Tasks");
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture = actionLibClientFeedbackListenerNode.getFibonnaciFuture(TestInputs.TEST_INPUT);
-            Assert.assertNotNull("Result was null", resultFuture);
+            Assertions.assertNotNull(resultFuture, "Result was null");
             final FibonacciActionResult result = resultFuture.get(5, TimeUnit.SECONDS);
 
             LOGGER.trace("Goal completed!");
 
-            Assert.assertNotNull("Result should not be null", result);
+            Assertions.assertNotNull(result, "Result should not be null");
 
-            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            Assertions.assertTrue(Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT), "Result was wrong");
             LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
 
-            Assert.fail(ExceptionUtils.getStackTrace(e));
+            Assertions.fail(ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -111,26 +114,26 @@ public final class ClientServerFeedbackTest {
         try {
 
             LOGGER.trace("Starting Tasks");
-            Assert.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isEmpty());
+            Assertions.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isEmpty());
             final CountDownLatch countDownLatch = actionLibClientFeedbackListenerNode.submitRequestSilent(TestInputs.TEST_INPUT);
 
             final boolean gotResult = countDownLatch.await(10, TimeUnit.SECONDS);
-            Assert.assertTrue("Timeout", gotResult);
-            Assert.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isPresent());
+            Assertions.assertTrue(gotResult, "Timeout");
+            Assertions.assertTrue(actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().isPresent());
             final FibonacciActionResult result = actionLibClientFeedbackListenerNode.getFibonacciActionResultOptional().get();
 
 
             LOGGER.trace("Goal completed!");
 
-            Assert.assertNotNull("Result should not be null", result);
+            Assertions.assertNotNull(result, "Result should not be null");
 
-            Assert.assertTrue("Result was wrong", Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT));
+            Assertions.assertTrue(Arrays.equals(result.getResult().getSequence(), TestInputs.TEST_CORRECT_OUTPUT), "Result was wrong");
             LOGGER.trace("Stopping");
 
 
         } catch (final Exception e) {
 
-            Assert.fail(ExceptionUtils.getStackTrace(e));
+            Assertions.fail(ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -143,18 +146,19 @@ public final class ClientServerFeedbackTest {
             final var resultFutureCancelled = this.actionLibClientFeedbackListenerNode.getFibonnaciEarlyCanceledFuture(TestInputs.HUGE_INPUT);
             final FibonacciActionResult result = resultFutureCancelled.get(5, TimeUnit.SECONDS);
             LOGGER.trace("Finished");
-            Assert.assertNotNull("Result should not be null", result);
-            Assert.assertTrue("Result should be cancelled even if goal and cancel arrive on different topics in either order",
-                    result.getStatus().getStatus() == GoalStatus.RECALLED || result.getStatus().getStatus() == GoalStatus.PREEMPTED);
-            Assert.assertFalse("Result should be incomplete", Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, result.getResult().getSequence()));
+            Assertions.assertNotNull(result, "Result should not be null");
+            Assertions.assertTrue(
+                    result.getStatus().getStatus() == GoalStatus.RECALLED || result.getStatus().getStatus() == GoalStatus.PREEMPTED,
+                    "Result should be cancelled even if goal and cancel arrive on different topics in either order");
+            Assertions.assertFalse(Arrays.equals(TestInputs.TEST_CORRECT_HUGE_INPUT_OUTPUT, result.getResult().getSequence()), "Result should be incomplete");
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
-            Assert.fail(ExceptionUtils.getStackTrace(e));
+            Assertions.fail(ExceptionUtils.getStackTrace(e));
         }
     }
 
-    @After
+    @AfterEach
     public final void after() {
         try {
             rosExecutor.stopNodeMain(this.asyncGoalRunnerActionLibServer);
@@ -177,8 +181,8 @@ public final class ClientServerFeedbackTest {
         try {
             if (this.rosCore != null) {
                 this.rosCore.shutdown();
-                final boolean roscoreStopped=this.rosCore.awaitShutdown(10,TimeUnit.SECONDS);
-                if(!roscoreStopped){
+                final boolean roscoreStopped = this.rosCore.awaitShutdown(10, TimeUnit.SECONDS);
+                if (!roscoreStopped) {
                     LOGGER.error("Roscore did not stop within specified time");
                 }
             }

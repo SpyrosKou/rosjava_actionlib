@@ -18,7 +18,12 @@ package com.github.rosjava_actionlib;
 
 import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import turtle_actionlib.ShapeActionGoal;
@@ -33,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Spyros Koukas
  */
-@Ignore //uncomment to use this test is ignored
+@Disabled //uncomment to use this test is ignored
 public class TurtleSimActionLibClientTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final String ROS_HOST_IP = "127.0.0.1";
@@ -42,7 +47,7 @@ public class TurtleSimActionLibClientTest {
 
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
-    @Before
+    @BeforeEach
     public void before() {
         try {
 
@@ -56,7 +61,7 @@ public class TurtleSimActionLibClientTest {
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
 
-            Assume.assumeNoException(er3);
+            Assumptions.assumeTrue(false, ExceptionUtils.getStackTrace(er3));
         }
 
     }
@@ -89,7 +94,7 @@ public class TurtleSimActionLibClientTest {
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
-            Assert.fail(ExceptionUtils.getStackTrace(e));
+            Assertions.fail(ExceptionUtils.getStackTrace(e));
         }
     }
 
@@ -125,11 +130,11 @@ public class TurtleSimActionLibClientTest {
 
         } catch (final Exception e) {
             LOGGER.error(ExceptionUtils.getStackTrace(e));
-            Assert.fail(ExceptionUtils.getStackTrace(e));
+            Assertions.fail(ExceptionUtils.getStackTrace(e));
         }
     }
 
-    @After
+    @AfterEach
     public void after() {
 
         try {

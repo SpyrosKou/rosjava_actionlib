@@ -21,8 +21,6 @@ import actionlib_tutorials.FibonacciActionResult;
 import com.google.common.base.Stopwatch;
 import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -45,28 +43,28 @@ public final class ActionServerTerminalStatusRetentionTest extends BaseTest {
         final Stopwatch stopwatch = Stopwatch.createStarted();
         try {
             final boolean serverStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT, TIME_UNIT);
-            Assert.assertTrue("Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT, serverStarted);
+            Assertions.assertTrue(serverStarted, "Was not connected. Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT);
 
             final ActionFuture<FibonacciActionGoal, FibonacciActionFeedback, FibonacciActionResult> resultFuture =
                     this.futureBasedClientNode.invoke(TestInputs.TEST_INPUT);
 
             final FibonacciActionResult result = resultFuture.get(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertNotNull("Null Result", result);
+            Assertions.assertNotNull(result, "Null Result");
             final String goalId = result.getStatus().getGoalId().getId();
             final Map<?, ?> trackedGoals = this.getTrackedGoalsMap();
 
-            Assert.assertTrue("Terminal goal should remain tracked for additional status heartbeats", trackedGoals.containsKey(goalId));
+            Assertions.assertTrue(trackedGoals.containsKey(goalId), "Terminal goal should remain tracked for additional status heartbeats");
             this.waitUntil(() -> !trackedGoals.containsKey(goalId), TERMINAL_STATUS_RETENTION_MILLIS + 2000);
-            Assert.assertFalse("Terminal goal should be evicted after the retention timeout", trackedGoals.containsKey(goalId));
+            Assertions.assertFalse(trackedGoals.containsKey(goalId), "Terminal goal should be evicted after the retention timeout");
         } catch (final Exception exception) {
-            Assert.fail(ExceptionUtils.getStackTrace(exception));
+            Assertions.fail(ExceptionUtils.getStackTrace(exception));
         }
     }
 
     @Override
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         try {
-            Assume.assumeNotNull(rosExecutor);
+            Assumptions.assumeTrue(rosExecutor != null);
             Assumptions.assumeTrue(rosMasterUri.isPresent());
             final Stopwatch stopwatch = Stopwatch.createStarted();
             this.fibonacciActionLibServer = new FibonacciActionLibServer(true, TERMINAL_STATUS_RETENTION_MILLIS, TimeUnit.MILLISECONDS);
@@ -74,11 +72,11 @@ public final class ActionServerTerminalStatusRetentionTest extends BaseTest {
 
             rosExecutor.startNodeMain(this.fibonacciActionLibServer, this.fibonacciActionLibServer.getDefaultNodeName().toString(), rosMasterUri.get());
             final boolean serverStarted = this.fibonacciActionLibServer.waitForStart(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assert.assertTrue("Server Could not connect", serverStarted);
+            Assertions.assertTrue(serverStarted, "Server Could not connect");
 
             rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
             final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-            Assumptions.assumeTrue(clientStarted,()->"Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT + " " + TIME_UNIT);
+            Assumptions.assumeTrue(clientStarted, () -> "Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT + " " + TIME_UNIT);
         } catch (final Exception exception) {
             Assumptions.assumeTrue(false, () -> ExceptionUtils.getStackTrace(exception));
         }
