@@ -23,6 +23,7 @@ import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.*;
+import org.junit.jupiter.api.Assumptions;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,12 +67,12 @@ public final class ClientServerFeedbackTest {
             this.rosExecutor.startNodeMain(asyncGoalRunnerActionLibServer, asyncGoalRunnerActionLibServer.getDefaultNodeName().toString(), ROS_MASTER_URI);
             this.rosExecutor.startNodeMain(actionLibClientFeedbackListenerNode, actionLibClientFeedbackListenerNode.getDefaultNodeName().toString(), ROS_MASTER_URI);
             final boolean serverStarted = this.asyncGoalRunnerActionLibServer.waitForStart(10000, TimeUnit.SECONDS);
-            Assume.assumeTrue("Could not connect", serverStarted);
+            Assumptions.assumeTrue( serverStarted,"Could not connect");
             final boolean clientStarted = this.actionLibClientFeedbackListenerNode.waitForStartAndConnection(10000, TimeUnit.SECONDS);
-            Assume.assumeTrue("Could not connect", clientStarted);
+            Assumptions.assumeTrue( serverStarted,"Could not connect");
         } catch (final Exception er3) {
             LOGGER.error(ExceptionUtils.getStackTrace(er3));
-            Assume.assumeNoException(er3);
+            Assumptions.assumeTrue(false,()->ExceptionUtils.getStackTrace(er3));
         }
 
     }

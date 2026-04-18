@@ -23,10 +23,11 @@ import actionlib_tutorials.FibonacciActionResult;
 import eu.test.utils.RosExecutor;
 import eu.test.utils.TestProperties;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.ros.RosCore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,8 +57,8 @@ public class WaitMethodsClientServerTest {
     private FibonacciActionLibServer fibonacciActionLibServer = null;
     private final RosExecutor rosExecutor = new RosExecutor(ROS_HOST_IP);
 
-    @Before
-    public void before() {
+    @BeforeEach
+    public void beforeEach() {
         try {
             if (!testProperties.useExternalRosMaster()) {
                 this.rosCore = RosCore.newPublic(ROS_MASTER_URI_PORT);
@@ -153,8 +154,8 @@ public class WaitMethodsClientServerTest {
 
     }
 
-    @After
-    public void after() {
+    @AfterEach
+    public void afterEach() {
         try {
             rosExecutor.stopNodeMain(fibonacciActionLibServer);
         } catch (final Exception e2) {

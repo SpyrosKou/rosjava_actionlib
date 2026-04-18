@@ -43,7 +43,7 @@ dependencies {
     api 'org.ros.rosjava_messages:std_msgs:0.5.13'
 
 
-    implementation 'com.google.guava:guava:33.0.0-jre'
+    implementation 'com.google.guava:guava:33.5.0-jre'
     compileOnly 'org.slf4j:slf4j-api:1.7.30'
 
     runtimeOnly 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
@@ -52,7 +52,8 @@ dependencies {
     implementation 'org.apache.commons:commons-configuration2:2.14.0'
 
 
-    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.ros.rosjava_messages:actionlib_tutorials:0.1.10'
     testImplementation 'org.ros.rosjava_messages:turtle_actionlib:0.1.10'
     testImplementation 'org.apache.camel:camel-test:3.22.4'
@@ -86,6 +87,10 @@ publishing {
     }
 }
 
+
+test {
+    useJUnitPlatform()
+}
 
 
 jar {
