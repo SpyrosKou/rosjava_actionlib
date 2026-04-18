@@ -20,7 +20,7 @@ import eu.test.utils.TestProperties;
 import org.apache.camel.test.AvailablePortFinder;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.After;
-import org.junit.Assume;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.Before;
 import org.ros.RosCore;
 import org.slf4j.Logger;
@@ -71,7 +71,7 @@ abstract class BaseTest {
     @Before
     public void before() {
         try {
-            if(!testProperties.useExternalRosMaster()) {
+            if (!testProperties.useExternalRosMaster()) {
                 this.rosMasterUriPort = AvailablePortFinder.getNextAvailable();
                 this.rosExecutor = new RosExecutor(ROS_HOST_IP);
                 this.rosCore = RosCore.newPrivate(rosMasterUriPort);
@@ -80,12 +80,12 @@ abstract class BaseTest {
             }
             final Optional<String> rosMasterUri = this.getRosMasterUri();
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("ROS Host IP:" + ROS_HOST_IP + " Current Ros Master Port:" + this.rosMasterUriPort);
+                LOGGER.trace("ROS Host IP:{} Current Ros Master Port:{}", ROS_HOST_IP, this.rosMasterUriPort);
             }
-            Assume.assumeTrue("Could not get rosMasterUri." + "ROS Host IP:" + ROS_HOST_IP + " Current Ros Master Port:" + this.rosMasterUriPort, rosMasterUri.isPresent());
+            Assumptions.assumeTrue(rosMasterUri.isPresent(), ()->"Could not get rosMasterUri." + "ROS Host IP:" + ROS_HOST_IP + " Current Ros Master Port:" + this.rosMasterUriPort);
             this.beforeCustom(this.rosExecutor, this.getRosMasterUri());
         } catch (final Exception er3) {
-            Assume.assumeNoException("ROS Host IP:" + ROS_HOST_IP + " Current Ros Master Port:" + this.rosMasterUriPort + "\nException:" + ExceptionUtils.getStackTrace(er3), er3);
+            Assumptions.assumeTrue(false, ()->"ROS Host IP:" + ROS_HOST_IP + " Current Ros Master Port:" + this.rosMasterUriPort + "\nException:" + ExceptionUtils.getStackTrace(er3));
         }
 
     }
