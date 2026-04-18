@@ -26,7 +26,9 @@ import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Assert;
 import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.ros.internal.message.Message;
 import org.ros.message.Time;
 import org.ros.node.ConnectedNode;
@@ -409,7 +411,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
     final void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         try {
         Assume.assumeNotNull(rosExecutor);
-        Assume.assumeTrue(rosMasterUri.isPresent());
+        Assumptions.assumeTrue(rosMasterUri.isPresent());
         final Stopwatch stopwatch = Stopwatch.createStarted();
         this.fibonacciActionLibServer = new FibonacciActionLibServer();
         this.futureBasedClientNode = new FutureBasedClientNode();
@@ -420,7 +422,7 @@ public class FibonacciFutureBasedClientNodeTest extends BaseTest {
 
         rosExecutor.startNodeMain(this.futureBasedClientNode, this.futureBasedClientNode.getDefaultNodeName().toString(), rosMasterUri.get());
         final boolean clientStarted = this.futureBasedClientNode.waitForClientStartAndServerConnection(TIMEOUT - stopwatch.elapsed(TIME_UNIT), TIME_UNIT);
-        Assume.assumeTrue("Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT+" "+TIME_UNIT, clientStarted);
+        Assumptions.assumeTrue(clientStarted,()->"Client started. " + "Elapsed Time:" + stopwatch.elapsed(TIME_UNIT) + " timeout:" + TIMEOUT+" "+TIME_UNIT);
         } catch (final Exception exception) {
             Assume.assumeNoException(exception);
         }

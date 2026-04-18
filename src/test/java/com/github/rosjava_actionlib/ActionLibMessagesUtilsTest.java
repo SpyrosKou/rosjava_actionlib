@@ -15,8 +15,8 @@
  */
 package com.github.rosjava_actionlib;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ActionLibMessagesUtilsTest {
 
@@ -48,7 +48,7 @@ public class ActionLibMessagesUtilsTest {
 
         final String result = ActionLibMessagesUtils.getSubMessageFromMessage(message, "getName");
 
-        Assert.assertEquals("goal", result);
+        Assertions.assertEquals("goal", result);
     }
 
     @Test
@@ -57,7 +57,7 @@ public class ActionLibMessagesUtilsTest {
 
         ActionLibMessagesUtils.setSubMessageFromMessage(message, "result", "setName");
 
-        Assert.assertEquals("result", message.getName());
+        Assertions.assertEquals("result", message.getName());
     }
 
     @Test
@@ -66,6 +66,6 @@ public class ActionLibMessagesUtilsTest {
 
         ActionLibMessagesUtils.setSubMessageFromMessage(message, Integer.valueOf(7), "setCount");
 
-        Assert.assertEquals(7, message.getCount());
+        Assertions.assertEquals(7, message.getCount());
     }
 }

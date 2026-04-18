@@ -23,7 +23,9 @@ import eu.test.utils.RosExecutor;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Assert;
 import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.ros.namespace.GraphName;
 import org.ros.node.AbstractNodeMain;
 import org.ros.node.ConnectedNode;
@@ -82,7 +84,7 @@ public class ActionClientFutureLifecycleTest extends BaseTest {
     void beforeCustom(final RosExecutor rosExecutor, final Optional<String> rosMasterUri) {
         try {
             Assume.assumeNotNull(rosExecutor);
-            Assume.assumeTrue(rosMasterUri.isPresent());
+            Assumptions.assumeTrue(rosMasterUri.isPresent());
 
             this.neverCompletingActionLibServer = new NeverCompletingActionLibServer();
             this.futureBasedClientNode = new FutureBasedClientNode();
