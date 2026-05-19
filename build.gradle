@@ -59,7 +59,7 @@ dependencies {
     testImplementation 'org.apache.camel:camel-test:3.22.4'
     testImplementation 'org.slf4j:slf4j-api:1.7.30'
     testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.25.3'
-    testImplementation 'org.apache.logging.log4j:log4j-core:2.25.4'
+    testImplementation 'org.apache.logging.log4j:log4j-core:2.26.0'
 
 
 }
