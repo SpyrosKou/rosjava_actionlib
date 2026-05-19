@@ -4,7 +4,7 @@ plugins {
     id 'idea'
 }
 group 'com.github.rosjava'
-version = '2026.04.17'
+version = '2026.05.19'
 description = 'A pure java version of actionlib'
 
 repositories {
@@ -98,9 +98,3 @@ jar {
         version = project.version
     }
 }
-
-
-
-
-
-

@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.StringJoiner;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -67,6 +68,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
     private final ClientGoalManager<T_ACTION_GOAL> goalManager = new ClientGoalManager<>(new ActionGoal<>());
     private final ActionLibTopics actionTopics;
+    private final CountDownLatch statusCountDownLatch = new CountDownLatch(1);
+
 
     private final String actionGoalType;
     private final String actionResultType;
@@ -493,6 +496,7 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
 
 
     }
+
     /**
      * Unsubscribe from the server topics.
      */
@@ -527,8 +531,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
         final GoalID goalId = resultGoalStatus == null ? null : resultGoalStatus.getGoalId();
         final String currentGoalId = this.goalManager.getActionGoal() == null ? null : this.goalManager.getActionGoal().getGoalId();
         if (LOGGER.isTraceEnabled()) {
-            final String goalId_id=goalId == null ? null : goalId.getId();
-            LOGGER.trace("Received result for action:[{}] with result goalId:[{}] while current goalId:[{}]", this.actionName,goalId_id , currentGoalId);
+            final String goalId_id = goalId == null ? null : goalId.getId();
+            LOGGER.trace("Received result for action:[{}] with result goalId:[{}] while current goalId:[{}]", this.actionName, goalId_id, currentGoalId);
         }
         if (goalId != null && StringUtils.isNotBlank(currentGoalId) && currentGoalId.equals(goalId.getId())) {
             this.goalManager.updateStatus(resultGoalStatus.getStatus());
@@ -547,8 +551,8 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             }
         } else {
             if (LOGGER.isTraceEnabled()) {
-                final String goalId_id=goalId == null ? null : goalId.getId();
-                LOGGER.trace("Received and ignored GoalId:{} because current client goal id=={}",goalId_id, currentGoalId);
+                final String goalId_id = goalId == null ? null : goalId.getId();
+                LOGGER.trace("Received and ignored GoalId:{} because current client goal id=={}", goalId_id, currentGoalId);
             }
         }
     }
@@ -580,7 +584,10 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
      * @see actionlib_msgs.GoalStatusArray
      */
     private final void gotStatus(final GoalStatusArray message) {
-        this.statusSubscriberFlagReception = true;
+        if (!this.statusSubscriberFlagReception) {
+            this.statusSubscriberFlagReception = true;
+            this.statusCountDownLatch.countDown();
+        }
 
         // Find the status for our current goal
         final GoalStatus goalStatus = this.findStatus(message);
@@ -711,6 +718,17 @@ public final class ActionClient<T_ACTION_GOAL extends Message,
             LOGGER.debug("waitForSubscriber cancel did not connect after:{} {} while timeout={} {}", stopwatch.elapsed(timeUnit), timeUnit.name(), timeout, timeUnit.name());
         }
         return result;
+    }
+
+    /**
+     * Can be heuristcally used instead of waitForServerConnection
+     * @param timeout
+     * @param timeUnit
+     * @return
+     * @throws InterruptedException
+     */
+    public final boolean waitForStatusTopicSubscription(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
+        return this.statusSubscriberFlagReception || this.statusCountDownLatch.await(timeout, timeUnit);
     }
 
     /**
